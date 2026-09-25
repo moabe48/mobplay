@@ -1,6 +1,6 @@
 {
   "name": "mobplay",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MobPlay IPTV Player para Android, Android TV e Windows",
   "main": "dist-electron/main.js",
   "scripts": {

@@ -18,6 +18,7 @@ import { parseXMLTVContent } from './services/epg/xmltvParser';
 
 // Layout & Modals
 import { Sidebar, NavTab } from './components/layout/Sidebar';
+import { BottomNav } from './components/layout/BottomNav';
 import { Header } from './components/layout/Header';
 import { StreamPlayer } from './components/player/StreamPlayer';
 import { MovieDetailsModal } from './components/modals/MovieDetailsModal';
@@ -480,6 +481,9 @@ export const App: React.FC = () => {
               )}
             </main>
           </div>
+
+          {/* Barra de Navegação Inferior para Celular */}
+          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
           {/* Modais de Detalhes de Filmes & Séries */}
           <MovieDetailsModal

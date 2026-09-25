@@ -10,7 +10,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Tv2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -39,27 +38,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCollapsed,
 }) => {
   const menuItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'home', label: 'Início', icon: <Home className="w-5 h-5" /> },
-    { id: 'livetv', label: 'TV ao Vivo', icon: <Tv className="w-5 h-5" /> },
-    { id: 'movies', label: 'Filmes', icon: <Film className="w-5 h-5" /> },
-    { id: 'series', label: 'Séries', icon: <Clapperboard className="w-5 h-5" /> },
-    { id: 'favorites', label: 'Favoritos', icon: <Heart className="w-5 h-5" /> },
-    { id: 'history', label: 'Continuar Assistindo', icon: <Clock className="w-5 h-5" /> },
-    { id: 'epg', label: 'Guia EPG', icon: <Calendar className="w-5 h-5" /> },
-    { id: 'settings', label: 'Configurações', icon: <Settings className="w-5 h-5" /> },
+    { id: 'home', label: 'Início', icon: <Home className="w-6 h-6" /> },
+    { id: 'livetv', label: 'TV ao Vivo', icon: <Tv className="w-6 h-6" /> },
+    { id: 'movies', label: 'Filmes', icon: <Film className="w-6 h-6" /> },
+    { id: 'series', label: 'Séries', icon: <Clapperboard className="w-6 h-6" /> },
+    { id: 'favorites', label: 'Favoritos', icon: <Heart className="w-6 h-6" /> },
+    { id: 'history', label: 'Continuar Assistindo', icon: <Clock className="w-6 h-6" /> },
+    { id: 'epg', label: 'Guia EPG', icon: <Calendar className="w-6 h-6" /> },
+    { id: 'settings', label: 'Configurações', icon: <Settings className="w-6 h-6" /> },
   ];
 
   return (
     <aside
       className={clsx(
-        'relative flex flex-col bg-dark-sidebar border-r border-dark-border/60 transition-all duration-300 z-30 select-none',
+        'hidden md:flex relative flex-col bg-slate-950 border-r border-slate-800/80 transition-all duration-300 z-30 select-none shrink-0',
         collapsed ? 'w-20' : 'w-64'
       )}
     >
       {/* App Logo Header */}
-      <div className="flex items-center justify-between h-20 px-4 border-b border-dark-border/40">
+      <div className="flex items-center justify-between h-20 px-4 border-b border-slate-800/60">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/90 p-1 shadow-lg shadow-cyan-500/20 shrink-0">
+          <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white/95 p-1.5 shadow-lg shadow-cyan-500/20 shrink-0 border border-cyan-500/30">
             <img src="/logo.png" alt="MobPlay Logo" className="w-full h-full object-contain" />
           </div>
           {!collapsed && (
@@ -77,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Toggle Button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-dark-cardHover transition-colors"
+          className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800/80 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none"
           title={collapsed ? 'Expandir Menu' : 'Recolher Menu'}
         >
           {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -85,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Navigation List */}
-      <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto no-scrollbar">
         {menuItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -93,41 +92,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={clsx(
-                'w-full flex items-center gap-4 px-3.5 py-3 rounded-xl font-medium text-sm transition-all duration-200 group relative',
+                'w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-150 group relative focus:ring-4 focus:ring-cyan-400 focus:outline-none',
                 isActive
-                  ? 'bg-gradient-to-r from-brand-600/90 to-red-600/80 text-white shadow-md shadow-brand-600/20 font-semibold'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-dark-cardHover/70'
+                  ? 'bg-gradient-to-r from-cyan-600 to-emerald-600 text-white shadow-lg shadow-cyan-600/30 font-bold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
               )}
             >
               <div
                 className={clsx(
                   'transition-transform duration-200 group-hover:scale-110',
-                  isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-500'
+                  isActive ? 'text-white' : 'text-slate-400 group-hover:text-cyan-400'
                 )}
               >
                 {item.icon}
               </div>
 
-              {!collapsed && (
-                <span className="truncate tracking-wide">{item.label}</span>
-              )}
-
-              {/* Tooltip quando recolhido */}
-              {collapsed && (
-                <div className="absolute left-full ml-3 px-3 py-1.5 bg-dark-card text-white text-xs rounded-md shadow-xl border border-dark-border opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 whitespace-nowrap">
-                  {item.label}
-                </div>
-              )}
+              {!collapsed && <span className="truncate tracking-wide">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      {/* Badge / Footer */}
+      {/* Footer Badge */}
       {!collapsed && (
-        <div className="p-4 m-3 rounded-xl bg-dark-card/50 border border-dark-border/40 text-center">
-          <p className="text-xs text-slate-300 font-semibold">MobPlay v1.0</p>
-          <p className="text-[11px] text-cyan-400 font-medium mt-0.5">Android TV, Mobile & PC</p>
+        <div className="p-4 m-3 rounded-2xl bg-slate-900/80 border border-slate-800 text-center">
+          <p className="text-xs text-slate-200 font-bold">MobPlay v1.0.1</p>
+          <p className="text-[11px] text-cyan-400 font-semibold mt-0.5">Android TV, Mobile & PC</p>
         </div>
       )}
     </aside>

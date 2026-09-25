@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "apkUrl": "https://github.com/moabe48/mobplay/releases/download/v1.0.0/MobPlay.apk",
-  "releaseNotes": "Versão inicial oficial do MobPlay v1.0.0 com suporte a Android TV e Celulares!",
+  "version": "1.0.1",
+  "apkUrl": "https://github.com/moabe48/mobplay/releases/download/v1.0.1/MobPlay.apk",
+  "releaseNotes": "Reformulação completa da interface para Smart TV e Celulares, motor de controle remoto D-Pad espacial sem travamentos e otimização extrema de desempenho!",
   "mandatory": false
 }
