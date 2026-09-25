@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MobPlay</string>
+    <string name="title_activity_main">MobPlay</string>
+    <string name="package_name">com.mobplay.app</string>
+    <string name="custom_url_scheme">com.mobplay.app</string>
+</resources>

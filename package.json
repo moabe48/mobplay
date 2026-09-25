@@ -1,0 +1,39 @@
+{
+  "name": "mobplay",
+  "version": "1.0.0",
+  "description": "MobPlay IPTV Player para Android, Android TV e Windows",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:electron": "tsc electron/main.ts electron/preload.ts --outDir dist-electron --module commonjs --target es2020 --moduleResolution node --skipLibCheck --esModuleInterop",
+    "build:ui": "vite build",
+    "build": "npm run build:electron && npm run build:ui && electron-builder",
+    "start": "npm run build:electron && npm run build:ui && electron .",
+    "dev": "npm run build:electron && npm run build:ui && electron ."
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "clsx": "^2.1.1",
+    "dexie": "^4.0.10",
+    "dexie-react-hooks": "^1.1.7",
+    "hls.js": "^1.5.17",
+    "lucide-react": "^0.475.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@types/node": "^22.13.4",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  }
+}
