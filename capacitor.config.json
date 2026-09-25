@@ -9,11 +9,6 @@
   "android": {
     "allowMixedContent": true,
     "captureInput": true,
-    "backgroundColor": "#090d16"
-  },
-  "plugins": {
-    "CapacitorHttp": {
-      "enabled": true
-    }
+    "backgroundColor": "#080B11"
   }
 }
