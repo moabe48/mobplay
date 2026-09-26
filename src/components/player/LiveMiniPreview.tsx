@@ -24,26 +24,45 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
 
-  // EPG do Canal Selecionado
+  // EPG do Canal Selecionado com Busca Flexível e Gerador Dinâmico Fallback
   const channelEpg = useMemo(() => {
     if (!channel) return { current: null, upcoming: [] };
     const nowMs = Date.now();
-    const programs = epgPrograms.filter(
-      (p) => p.channelId === channel.id || (channel.epgId && p.channelId === channel.epgId)
-    );
+
+    // 1. Filtrar programas reais que correspondem ao canal
+    const programs = epgPrograms.filter((p) => {
+      if (!p) return false;
+      const chId = String(channel.id).toLowerCase();
+      const pChId = String(p.channelId).toLowerCase();
+      const streamId = String(channel.streamId || '').toLowerCase();
+      const epgId = String(channel.epgId || '').toLowerCase();
+      const chName = String(channel.name).toLowerCase();
+
+      return (
+        pChId === chId ||
+        pChId === streamId ||
+        (epgId && pChId === epgId) ||
+        pChId === chName
+      );
+    });
 
     const current = programs.find((p) => {
       const s = new Date(p.start).getTime();
       const e = new Date(p.end).getTime();
       return nowMs >= s && nowMs <= e;
-    }) || null;
+    });
 
     const upcoming = programs
       .filter((p) => new Date(p.start).getTime() > nowMs)
       .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
       .slice(0, 3);
 
-    return { current, upcoming };
+    if (current) {
+      return { current, upcoming };
+    }
+
+    // 2. Se não houver EPG do servidor, gerar EPG Dinâmico Inteligente
+    return generateFallbackEPG(channel);
   }, [channel, epgPrograms]);
 
   useEffect(() => {
@@ -115,7 +134,7 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   }
 
   // Progresso do programa no ar
-  let currentPct = 0;
+  let currentPct = 50;
   if (channelEpg.current) {
     const s = new Date(channelEpg.current.start).getTime();
     const e = new Date(channelEpg.current.end).getTime();
@@ -204,7 +223,7 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
           </h4>
 
           {/* Programa Atual */}
-          {channelEpg.current ? (
+          {channelEpg.current && (
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/40 to-slate-900 border border-cyan-500/40 space-y-2">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="flex items-center gap-1.5 text-cyan-300 font-bold">
@@ -227,14 +246,10 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
               </div>
 
               {channelEpg.current.desc && (
-                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mt-1">
+                <p className="text-xs text-slate-400 leading-relaxed mt-1">
                   {channelEpg.current.desc}
                 </p>
               )}
-            </div>
-          ) : (
-            <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-400 italic">
-              Nenhuma informação de programa EPG no momento.
             </div>
           )}
 
@@ -274,3 +289,68 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
     </div>
   );
 };
+
+/**
+ * Gerador de EPG Dinâmico Inteligente quando o provedor não disponibilizar guia XMLTV
+ */
+function generateFallbackEPG(channel: Channel): { current: EPGProgram; upcoming: EPGProgram[] } {
+  const now = new Date();
+  const start = new Date(now);
+  start.setMinutes(0, 0, 0);
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+  const catName = channel.categoryName || 'Geral';
+  let title = `${channel.name}: Transmissão ao Vivo`;
+  let desc = `Programação contínua de ${channel.name} no segmento ${catName} em alta definição.`;
+
+  const catLower = catName.toLowerCase();
+  if (catLower.includes('esporte') || catLower.includes('sport')) {
+    title = `${channel.name}: Cobertura Esportiva ao Vivo`;
+    desc = `Transmissão ao vivo de partidas, notícias do mundo dos esportes e melhores momentos.`;
+  } else if (catLower.includes('notíc') || catLower.includes('news')) {
+    title = `${channel.name}: Jornalismo e Notícias 24h`;
+    desc = `As principais manchetes, economia e atualizações do Brasil e do mundo em tempo real.`;
+  } else if (catLower.includes('filme') || catLower.includes('cinema') || catLower.includes('hbo') || catLower.includes('telecine')) {
+    title = `Sessão de Cinema: ${channel.name}`;
+    desc = `Exibição especial de grandes sucessos do cinema mundial em qualidade HD.`;
+  } else if (catLower.includes('infantil') || catLower.includes('kids') || catLower.includes('desenho')) {
+    title = `Desenhos e Animações: ${channel.name}`;
+    desc = `Programação infantil com os melhores desenhos e séries animadas.`;
+  }
+
+  const current: EPGProgram = {
+    id: `fallback_${channel.id}_curr`,
+    channelId: channel.id,
+    title,
+    desc,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    category: catName,
+  };
+
+  const up1Start = new Date(end);
+  const up1End = new Date(up1Start.getTime() + 60 * 60 * 1000);
+  const up2Start = new Date(up1End);
+  const up2End = new Date(up2Start.getTime() + 60 * 60 * 1000);
+
+  const upcoming: EPGProgram[] = [
+    {
+      id: `fallback_${channel.id}_up1`,
+      channelId: channel.id,
+      title: `${channel.name}: Edição Especial`,
+      start: up1Start.toISOString(),
+      end: up1End.toISOString(),
+      category: catName,
+    },
+    {
+      id: `fallback_${channel.id}_up2`,
+      channelId: channel.id,
+      title: `Programação Noturna - ${channel.name}`,
+      start: up2Start.toISOString(),
+      end: up2End.toISOString(),
+      category: catName,
+    },
+  ];
+
+  return { current, upcoming };
+}
