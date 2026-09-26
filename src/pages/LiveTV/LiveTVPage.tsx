@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Tv, Search, Heart, Play, Radio, List } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Tv, Search, Heart, Play, List } from 'lucide-react';
 import { Channel, Category, EPGProgram } from '../../types/iptv';
 import { LiveMiniPreview } from '../../components/player/LiveMiniPreview';
 
@@ -22,6 +22,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(channels[0] || null);
+  const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const liveCategories = useMemo(
     () => (categories || []).filter((c) => c.type === 'live' || !c.type),
@@ -43,6 +44,23 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
 
     return result;
   }, [channels, selectedCategoryId, favoritesMap, searchQuery]);
+
+  // Ao mudar de categoria, definir primeiro canal por padrão
+  useEffect(() => {
+    if (filteredChannels.length > 0 && (!selectedChannel || !filteredChannels.some(c => c.id === selectedChannel.id))) {
+      setSelectedChannel(filteredChannels[0]);
+    }
+  }, [filteredChannels]);
+
+  // Debounce no foco para evitar gargalos durante rolagem rápida do D-Pad
+  const handleChannelFocus = (ch: Channel) => {
+    if (focusTimeoutRef.current) {
+      clearTimeout(focusTimeoutRef.current);
+    }
+    focusTimeoutRef.current = setTimeout(() => {
+      setSelectedChannel(ch);
+    }, 120);
+  };
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-slate-950 text-slate-100 font-sans pb-20 md:pb-0">
@@ -128,7 +146,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          {filteredChannels.slice(0, 100).map((ch, idx) => {
+          {filteredChannels.slice(0, 300).map((ch, idx) => {
             const isSelected = selectedChannel?.id === ch.id;
             const isFav = !!favoritesMap[ch.id];
 
@@ -137,18 +155,18 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                 key={ch.id}
                 tabIndex={0}
                 role="button"
-                onFocus={() => setSelectedChannel(ch)}
+                onFocus={() => handleChannelFocus(ch)}
                 onClick={() => {
                   setSelectedChannel(ch);
                   onPlayChannel(ch);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23) {
                     e.preventDefault();
                     onPlayChannel(ch);
                   }
                 }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-cyan-400 focus:scale-[1.01] ${
+                className={`w-full flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all duration-100 focus:outline-none focus:ring-4 focus:ring-cyan-400 focus:scale-[1.01] ${
                   isSelected
                     ? 'bg-gradient-to-r from-cyan-950/80 to-slate-900 border-cyan-500/60 text-white shadow-lg'
                     : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-900 hover:text-white'
