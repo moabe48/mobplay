@@ -5,11 +5,11 @@ import { MediaCard } from '../../components/cards/MediaCard';
 import { NavTab } from '../../components/layout/Sidebar';
 
 interface HomePageProps {
-  channels: Channel[];
-  movies: Movie[];
-  seriesList: Series[];
-  history: WatchHistoryItem[];
-  favoritesMap: Record<string, boolean>;
+  channels?: Channel[];
+  movies?: Movie[];
+  seriesList?: Series[];
+  history?: WatchHistoryItem[];
+  favoritesMap?: Record<string, boolean>;
   setActiveTab: (tab: NavTab) => void;
   onPlayItem: (item: any, type: 'live' | 'movie' | 'series') => void;
   onSelectMovie: (movie: Movie) => void;
@@ -18,11 +18,11 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
-  channels,
-  movies,
-  seriesList,
-  history,
-  favoritesMap,
+  channels = [],
+  movies = [],
+  seriesList = [],
+  history = [],
+  favoritesMap = {},
   setActiveTab,
   onPlayItem,
   onSelectMovie,
@@ -30,7 +30,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   onToggleFavorite,
 }) => {
   // Filme em destaque no Hero Banner
-  const heroMovie = movies[0] || null;
+  const heroMovie = (movies && movies.length > 0) ? movies[0] : null;
 
   return (
     <div className="flex-1 overflow-y-auto space-y-8 p-4 md:p-8 font-sans no-scrollbar pb-24 md:pb-8">
@@ -92,9 +92,9 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 2. ATALHOS DE CATEGORIAS SMART TV (TILES GRANDES) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
         {[
-          { id: 'livetv', label: 'TV ao Vivo', count: `${channels.length} canais`, icon: <Tv className="w-7 h-7 text-cyan-400" />, color: 'from-cyan-600/30 to-blue-600/20' },
-          { id: 'movies', label: 'Filmes', count: `${movies.length} títulos`, icon: <Film className="w-7 h-7 text-emerald-400" />, color: 'from-emerald-600/30 to-teal-600/20' },
-          { id: 'series', label: 'Séries', count: `${seriesList.length} séries`, icon: <Clapperboard className="w-7 h-7 text-purple-400" />, color: 'from-purple-600/30 to-indigo-600/20' },
+          { id: 'livetv', label: 'TV ao Vivo', count: `${channels?.length || 0} canais`, icon: <Tv className="w-7 h-7 text-cyan-400" />, color: 'from-cyan-600/30 to-blue-600/20' },
+          { id: 'movies', label: 'Filmes', count: `${movies?.length || 0} títulos`, icon: <Film className="w-7 h-7 text-emerald-400" />, color: 'from-emerald-600/30 to-teal-600/20' },
+          { id: 'series', label: 'Séries', count: `${seriesList?.length || 0} séries`, icon: <Clapperboard className="w-7 h-7 text-purple-400" />, color: 'from-purple-600/30 to-indigo-600/20' },
           { id: 'epg', label: 'Guia EPG', count: 'Grade de Programação', icon: <Calendar className="w-7 h-7 text-amber-400" />, color: 'from-amber-600/30 to-orange-600/20' },
           { id: 'settings', label: 'Configurações', count: 'Preferências', icon: <Settings className="w-7 h-7 text-slate-400" />, color: 'from-slate-600/30 to-slate-800/20' },
         ].map((item) => (
@@ -114,7 +114,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       </div>
 
       {/* 3. CARROSSÉIS SMART TV (FILMES E SÉRIES RECENTES) */}
-      {movies.length > 0 && (
+      {movies && movies.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
@@ -146,7 +146,7 @@ export const HomePage: React.FC<HomePageProps> = ({
         </section>
       )}
 
-      {seriesList.length > 0 && (
+      {seriesList && seriesList.length > 0 && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">

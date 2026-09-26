@@ -13,9 +13,9 @@ interface MoviesPageProps {
 }
 
 export const MoviesPage: React.FC<MoviesPageProps> = ({
-  movies,
-  categories,
-  favoritesMap,
+  movies = [],
+  categories = [],
+  favoritesMap = {},
   onPlayMovie,
   onSelectMovie,
   onToggleFavorite,
@@ -24,7 +24,7 @@ export const MoviesPage: React.FC<MoviesPageProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const movieCategories = useMemo(
-    () => categories.filter((c) => c.type === 'movie' || !c.type),
+    () => (categories || []).filter((c) => c.type === 'movie' || !c.type),
     [categories]
   );
 

@@ -13,9 +13,9 @@ interface LiveTVPageProps {
 }
 
 export const LiveTVPage: React.FC<LiveTVPageProps> = ({
-  channels,
-  categories,
-  favoritesMap,
+  channels = [],
+  categories = [],
+  favoritesMap = {},
   onPlayChannel,
   onToggleFavorite,
 }) => {
@@ -24,7 +24,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(channels[0] || null);
 
   const liveCategories = useMemo(
-    () => categories.filter((c) => c.type === 'live' || !c.type),
+    () => (categories || []).filter((c) => c.type === 'live' || !c.type),
     [categories]
   );
 

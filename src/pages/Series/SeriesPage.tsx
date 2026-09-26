@@ -13,9 +13,9 @@ interface SeriesPageProps {
 }
 
 export const SeriesPage: React.FC<SeriesPageProps> = ({
-  seriesList,
-  categories,
-  favoritesMap,
+  seriesList = [],
+  categories = [],
+  favoritesMap = {},
   onPlaySeries,
   onSelectSeries,
   onToggleFavorite,
@@ -24,7 +24,7 @@ export const SeriesPage: React.FC<SeriesPageProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const seriesCategories = useMemo(
-    () => categories.filter((c) => c.type === 'series' || !c.type),
+    () => (categories || []).filter((c) => c.type === 'series' || !c.type),
     [categories]
   );
 
