@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Tv, Search, Heart, Play, List } from 'lucide-react';
+import { Tv, Search, Heart, Play, List, Clock } from 'lucide-react';
 import { Channel, Category, EPGProgram } from '../../types/iptv';
 import { LiveMiniPreview } from '../../components/player/LiveMiniPreview';
 
@@ -16,6 +16,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
   channels = [],
   categories = [],
   favoritesMap = {},
+  epgPrograms = [],
   onPlayChannel,
   onToggleFavorite,
 }) => {
@@ -44,6 +45,21 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
 
     return result;
   }, [channels, selectedCategoryId, favoritesMap, searchQuery]);
+
+  // Mapeamento de Programa Atual por Canal (para exibir no item da lista)
+  const currentEpgMap = useMemo(() => {
+    const map: Record<string, EPGProgram> = {};
+    const nowMs = Date.now();
+
+    for (const prog of epgPrograms) {
+      const s = new Date(prog.start).getTime();
+      const e = new Date(prog.end).getTime();
+      if (nowMs >= s && nowMs <= e) {
+        map[prog.channelId] = prog;
+      }
+    }
+    return map;
+  }, [epgPrograms]);
 
   // Ao mudar de categoria, definir primeiro canal por padrão
   useEffect(() => {
@@ -149,6 +165,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
           {filteredChannels.slice(0, 300).map((ch, idx) => {
             const isSelected = selectedChannel?.id === ch.id;
             const isFav = !!favoritesMap[ch.id];
+            const currentProgram = currentEpgMap[ch.id] || (ch.epgId ? currentEpgMap[ch.epgId] : undefined);
 
             return (
               <div
@@ -194,12 +211,19 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                     )}
                   </div>
 
-                  {/* Nome do Canal & Categoria */}
+                  {/* Nome do Canal & Programa EPG no Ar */}
                   <div className="min-w-0 text-left">
                     <p className="text-sm font-bold text-white truncate tracking-wide">{ch.name}</p>
-                    <p className="text-xs text-slate-400 truncate mt-0.5">
-                      {ch.categoryName || 'Canal ao Vivo'}
-                    </p>
+                    {currentProgram ? (
+                      <div className="flex items-center gap-1.5 text-xs text-cyan-400 truncate mt-0.5 font-semibold">
+                        <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
+                        <span className="truncate">{currentProgram.title}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 truncate mt-0.5">
+                        {ch.categoryName || 'Canal ao Vivo'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -224,10 +248,11 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
         </div>
       </div>
 
-      {/* 3. PAINEL DE PRÉ-VISUALIZAÇÃO AO VIVO (COLUNA DA DIREITA) */}
+      {/* 3. PAINEL DE PRÉ-VISUALIZAÇÃO AO VIVO & EPG (COLUNA DA DIREITA) */}
       <div className="hidden lg:block w-96 shrink-0 h-full">
         <LiveMiniPreview
           channel={selectedChannel}
+          epgPrograms={epgPrograms}
           onFullscreen={onPlayChannel}
           onToggleFavorite={onToggleFavorite}
           isFavorite={selectedChannel ? !!favoritesMap[selectedChannel.id] : false}

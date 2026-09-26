@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Hls from 'hls.js';
-import { Play, Maximize2, Volume2, VolumeX, Heart, Tv, Radio } from 'lucide-react';
-import { Channel } from '../../types/iptv';
+import { Play, Maximize2, Volume2, VolumeX, Heart, Tv, Radio, Clock, Calendar } from 'lucide-react';
+import { Channel, EPGProgram } from '../../types/iptv';
 
 interface LiveMiniPreviewProps {
   channel: Channel | null;
+  epgPrograms?: EPGProgram[];
   onFullscreen: (channel: Channel) => void;
   onToggleFavorite?: (id: string, type: 'live') => void;
   isFavorite?: boolean;
@@ -12,15 +13,38 @@ interface LiveMiniPreviewProps {
 
 export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   channel,
+  epgPrograms = [],
   onFullscreen,
   onToggleFavorite,
   isFavorite = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(true); // Muted por padrão no preview para não atrapalhar
+  const [isMuted, setIsMuted] = useState<boolean>(true); // Muted por padrão no preview
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
+
+  // EPG do Canal Selecionado
+  const channelEpg = useMemo(() => {
+    if (!channel) return { current: null, upcoming: [] };
+    const nowMs = Date.now();
+    const programs = epgPrograms.filter(
+      (p) => p.channelId === channel.id || (channel.epgId && p.channelId === channel.epgId)
+    );
+
+    const current = programs.find((p) => {
+      const s = new Date(p.start).getTime();
+      const e = new Date(p.end).getTime();
+      return nowMs >= s && nowMs <= e;
+    }) || null;
+
+    const upcoming = programs
+      .filter((p) => new Date(p.start).getTime() > nowMs)
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+      .slice(0, 3);
+
+    return { current, upcoming };
+  }, [channel, epgPrograms]);
 
   useEffect(() => {
     if (!channel || !channel.url || !videoRef.current) return;
@@ -90,8 +114,17 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
     );
   }
 
+  // Progresso do programa no ar
+  let currentPct = 0;
+  if (channelEpg.current) {
+    const s = new Date(channelEpg.current.start).getTime();
+    const e = new Date(channelEpg.current.end).getTime();
+    const now = Date.now();
+    currentPct = Math.min(100, Math.max(0, ((now - s) / (e - s)) * 100));
+  }
+
   return (
-    <div className="w-full h-full bg-slate-950 border-l border-slate-800 flex flex-col justify-between p-4 overflow-y-auto no-scrollbar font-sans select-none">
+    <div className="w-full h-full bg-slate-950 border-l border-slate-800 flex flex-col justify-between p-4 overflow-y-auto no-scrollbar font-sans select-none space-y-4">
       <div className="space-y-4">
         {/* Banner do Player de Pré-Visualização */}
         <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-xl group">
@@ -127,7 +160,7 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
         </div>
 
         {/* Informações do Canal Selecionado */}
-        <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
+        <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800">
           <div className="w-14 h-14 rounded-2xl bg-white/95 p-1.5 shadow-md shrink-0 border border-cyan-500/30 flex items-center justify-center">
             {channel.logo ? (
               <img
@@ -162,14 +195,77 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
             </button>
           )}
         </div>
+
+        {/* GUIA DE PROGRAMAÇÃO (EPG) AO VIVO */}
+        <div className="space-y-3 pt-1">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Programação ao Vivo (EPG)</span>
+          </h4>
+
+          {/* Programa Atual */}
+          {channelEpg.current ? (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-cyan-950/40 to-slate-900 border border-cyan-500/40 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="flex items-center gap-1.5 text-cyan-300 font-bold">
+                  <Clock className="w-3 h-3 text-cyan-400" />
+                  {new Date(channelEpg.current.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(channelEpg.current.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white font-extrabold text-[9px] uppercase tracking-wider animate-pulse">
+                  NO AR
+                </span>
+              </div>
+
+              <h5 className="text-sm font-bold text-white leading-tight">{channelEpg.current.title}</h5>
+
+              {/* Barra de Progresso do Programa */}
+              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                  style={{ width: `${currentPct}%` }}
+                />
+              </div>
+
+              {channelEpg.current.desc && (
+                <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mt-1">
+                  {channelEpg.current.desc}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800/80 text-xs text-slate-400 italic">
+              Nenhuma informação de programa EPG no momento.
+            </div>
+          )}
+
+          {/* Próximos Programas */}
+          {channelEpg.upcoming.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">A Seguir:</span>
+              <div className="space-y-1.5">
+                {channelEpg.upcoming.map((prog) => (
+                  <div
+                    key={prog.id}
+                    className="p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/60 flex items-center justify-between text-xs"
+                  >
+                    <span className="font-bold text-white truncate max-w-[200px]">{prog.title}</span>
+                    <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                      {new Date(prog.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Botão de Tela Cheia D-Pad */}
-      <div className="pt-4">
+      <div className="pt-2">
         <button
           tabIndex={0}
           onClick={() => onFullscreen(channel)}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-sm md:text-base shadow-xl flex items-center justify-center gap-3 transition-transform focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none"
+          className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-black text-sm shadow-xl flex items-center justify-center gap-3 transition-transform focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none"
         >
           <Maximize2 className="w-5 h-5 stroke-[2.5]" />
           <span>ASSISTIR EM TELA CHEIA</span>
