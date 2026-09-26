@@ -479,6 +479,7 @@ export const App: React.FC = () => {
                     setAccount(null);
                     await clearAllCache();
                   }}
+                  onTriggerUpdateModal={(info) => setUpdateAvailable(info)}
                 />
               )}
             </main>
