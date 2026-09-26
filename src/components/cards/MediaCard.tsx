@@ -44,7 +44,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       role="button"
       onClick={handleCardClick}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (
+          e.key === 'Enter' ||
+          e.key === 'Select' ||
+          e.key === ' ' ||
+          e.keyCode === 13 ||
+          e.keyCode === 23 ||
+          e.keyCode === 66
+        ) {
           e.preventDefault();
           handleCardClick();
         }

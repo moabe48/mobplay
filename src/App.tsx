@@ -375,7 +375,7 @@ export const App: React.FC = () => {
                   categories={categories}
                   epgPrograms={epgPrograms}
                   favoritesMap={favoritesMap}
-                  onPlay={(ch) => setActivePlayerItem({ item: ch, type: 'live' })}
+                  onPlayChannel={(ch) => setActivePlayerItem({ item: ch, type: 'live' })}
                   onToggleFavorite={handleToggleFavorite}
                 />
               )}
@@ -385,7 +385,8 @@ export const App: React.FC = () => {
                   movies={movies}
                   categories={categories}
                   favoritesMap={favoritesMap}
-                  onOpenDetails={setSelectedMovie}
+                  onPlayMovie={(mov) => setActivePlayerItem({ item: mov, type: 'movie' })}
+                  onSelectMovie={setSelectedMovie}
                   onToggleFavorite={handleToggleFavorite}
                 />
               )}
@@ -395,7 +396,8 @@ export const App: React.FC = () => {
                   seriesList={seriesList}
                   categories={categories}
                   favoritesMap={favoritesMap}
-                  onOpenDetails={handleOpenSeriesDetails}
+                  onPlaySeries={(ser) => handleOpenSeriesDetails(ser)}
+                  onSelectSeries={handleOpenSeriesDetails}
                   onToggleFavorite={handleToggleFavorite}
                 />
               )}

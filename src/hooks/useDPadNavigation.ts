@@ -51,10 +51,11 @@ export function useDPadNavigation(onBackPress?: () => void) {
         direction = 'ArrowRight';
       }
 
-      // Se for tecla de confirmação (OK / Enter / DPAD_CENTER) em elemento focável customizado
+      // Se for tecla de confirmação (OK / Enter / DPAD_CENTER) em elemento focável
       if (key === 'Enter' || key === 'Select' || key === ' ' || code === 13 || code === 23 || code === 66) {
         const active = document.activeElement as HTMLElement;
-        if (active && active !== document.body && active.tagName !== 'BUTTON' && active.tagName !== 'INPUT' && active.tagName !== 'A') {
+        if (active && active !== document.body && active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') {
+          e.preventDefault();
           active.click();
         }
         return;

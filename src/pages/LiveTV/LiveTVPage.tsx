@@ -207,8 +207,16 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                   onPlayChannel(ch);
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23) {
+                  if (
+                    e.key === 'Enter' ||
+                    e.key === 'Select' ||
+                    e.key === ' ' ||
+                    e.keyCode === 13 ||
+                    e.keyCode === 23 ||
+                    e.keyCode === 66
+                  ) {
                     e.preventDefault();
+                    setSelectedChannel(ch);
                     onPlayChannel(ch);
                   }
                 }}
