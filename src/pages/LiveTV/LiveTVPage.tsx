@@ -144,9 +144,9 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-slate-950 text-slate-100 font-sans p-3 md:p-6 gap-4 select-none pb-20 md:pb-6">
+    <div className="flex-1 flex flex-row h-full overflow-hidden bg-slate-950 text-slate-100 font-sans p-3 md:p-6 gap-3 md:gap-4 select-none pb-3 md:pb-6">
       {/* 1. CARD CATEGORIAS (COLUNA ESQUERDA) */}
-      <div className="w-full md:w-64 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 shadow-2xl overflow-hidden">
+      <div className="w-56 lg:w-64 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 shadow-2xl overflow-hidden">
         <div className="p-4 border-b border-slate-800/60">
           <h2 className="text-base font-bold text-white tracking-wide">Categorias</h2>
         </div>
@@ -215,7 +215,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
       </div>
 
       {/* 2. CARD CANAIS (COLUNA CENTRAL) */}
-      <div className="flex-1 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+      <div className="flex-1 min-w-[280px] bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
         <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
           <h2 className="text-base font-bold text-white tracking-wide">Canais</h2>
           <span className="text-xs text-slate-400 font-mono">
@@ -236,8 +236,11 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                 role="button"
                 onFocus={() => handleChannelFocus(ch)}
                 onClick={() => {
-                  setSelectedChannel(ch);
-                  onPlayChannel(ch);
+                  if (isSelected) {
+                    onPlayChannel(ch);
+                  } else {
+                    setSelectedChannel(ch);
+                  }
                 }}
                 onKeyDown={(e) => {
                   if (
@@ -249,8 +252,11 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                     e.keyCode === 66
                   ) {
                     e.preventDefault();
-                    setSelectedChannel(ch);
-                    onPlayChannel(ch);
+                    if (isSelected) {
+                      onPlayChannel(ch);
+                    } else {
+                      setSelectedChannel(ch);
+                    }
                   }
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-cyan-400 ${
@@ -299,7 +305,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
       </div>
 
       {/* 3. CARD PREVIEW & EPG (COLUNA DIREITA SEMPRE VISÍVEL NA TV) */}
-      <div className="flex w-80 md:w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex-col shrink-0 overflow-hidden shadow-2xl">
+      <div className="w-80 lg:w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 overflow-hidden shadow-2xl">
         <LiveMiniPreview
           channel={selectedChannel}
           epgPrograms={epgPrograms}

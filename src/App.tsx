@@ -123,7 +123,11 @@ export const App: React.FC = () => {
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown, true);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+    document.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown, true);
+      document.removeEventListener('keydown', handleGlobalKeyDown, true);
+    };
   }, [activePlayerItem, selectedMovie, selectedSeries, updateAvailable, activeTab]);
 
   const loadInitialData = async () => {
@@ -365,7 +369,10 @@ export const App: React.FC = () => {
                   channels={channels}
                   movies={movies}
                   series={seriesList}
+                  seriesList={seriesList}
                   favoritesMap={favoritesMap}
+                  setActiveTab={setActiveTab}
+                  onNavigateToTab={setActiveTab}
                   onPlay={(item) => {
                     if ('progressPercentage' in item) {
                       // Resume de histórico
@@ -379,12 +386,18 @@ export const App: React.FC = () => {
                       setActivePlayerItem({ item: item as Movie, type: 'movie' });
                     }
                   }}
+                  onPlayItem={(item, type) => {
+                    if (type === 'live') setActivePlayerItem({ item: item as Channel, type: 'live' });
+                    else if (type === 'movie') setActivePlayerItem({ item: item as Movie, type: 'movie' });
+                    else if (type === 'series') handleOpenSeriesDetails(item as Series);
+                  }}
                   onOpenDetails={(item) => {
                     if ('seasonsCount' in item || 'seriesId' in item) handleOpenSeriesDetails(item as Series);
                     else setSelectedMovie(item as Movie);
                   }}
+                  onSelectMovie={setSelectedMovie}
+                  onSelectSeries={handleOpenSeriesDetails}
                   onToggleFavorite={handleToggleFavorite}
-                  onNavigateToTab={setActiveTab}
                 />
               )}
 

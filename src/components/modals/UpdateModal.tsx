@@ -78,6 +78,14 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
           </div>
         </div>
 
+        {/* Status Message */}
+        {statusMsg && (
+          <div className="mb-4 p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center gap-2.5 text-xs text-cyan-300 font-semibold animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-cyan-400 shrink-0" />
+            <span>{statusMsg}</span>
+          </div>
+        )}
+
         {/* Security badge */}
         <div className="flex items-center gap-2 text-[11px] text-slate-400 mb-6">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -88,8 +96,15 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={handleStartUpdate}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+                e.preventDefault();
+                handleStartUpdate();
+              }
+            }}
+            tabIndex={0}
             autoFocus
-            className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 focus:ring-4 focus:ring-cyan-400 focus:outline-none"
+            className="flex-1 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer"
           >
             <Download className="w-5 h-5" />
             <span>{downloading ? 'Baixando Atualização...' : 'Atualizar Agora'}</span>
@@ -98,7 +113,14 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
           {!updateInfo.mandatory && (
             <button
               onClick={onClose}
-              className="py-3.5 px-6 rounded-2xl bg-dark-bg border border-dark-border hover:bg-dark-cardHover text-slate-300 text-sm font-semibold transition-colors focus:ring-2 focus:ring-slate-400 focus:outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+                  e.preventDefault();
+                  onClose();
+                }
+              }}
+              tabIndex={0}
+              className="py-3.5 px-6 rounded-2xl bg-dark-bg border border-dark-border hover:bg-dark-cardHover text-slate-300 text-sm font-semibold transition-colors focus:ring-4 focus:ring-slate-400 focus:outline-none cursor-pointer"
             >
               Lembrar Mais Tarde
             </button>

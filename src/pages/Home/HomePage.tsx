@@ -8,34 +8,64 @@ interface HomePageProps {
   channels?: Channel[];
   movies?: Movie[];
   seriesList?: Series[];
+  series?: Series[];
   history?: WatchHistoryItem[];
   favoritesMap?: Record<string, boolean>;
-  setActiveTab: (tab: NavTab) => void;
-  onPlayItem: (item: any, type: 'live' | 'movie' | 'series') => void;
-  onSelectMovie: (movie: Movie) => void;
-  onSelectSeries: (series: Series) => void;
-  onToggleFavorite: (id: string, type: 'live' | 'movie' | 'series') => void;
+  setActiveTab?: (tab: NavTab) => void;
+  onNavigateToTab?: (tab: NavTab) => void;
+  onPlayItem?: (item: any, type: 'live' | 'movie' | 'series') => void;
+  onPlay?: (item: any) => void;
+  onSelectMovie?: (movie: Movie) => void;
+  onSelectSeries?: (series: Series) => void;
+  onOpenDetails?: (item: any) => void;
+  onToggleFavorite?: (id: string, type: 'live' | 'movie' | 'series') => void;
 }
 
 export const HomePage: React.FC<HomePageProps> = ({
   channels = [],
   movies = [],
   seriesList = [],
+  series = [],
   history = [],
   favoritesMap = {},
   setActiveTab,
+  onNavigateToTab,
   onPlayItem,
+  onPlay,
   onSelectMovie,
   onSelectSeries,
-  onToggleFavorite,
+  onOpenDetails,
+  onToggleFavorite = () => {},
 }) => {
+  const actualSeriesList = seriesList.length > 0 ? seriesList : series;
+
+  const navigate = (tab: NavTab) => {
+    if (setActiveTab) setActiveTab(tab);
+    if (onNavigateToTab) onNavigateToTab(tab);
+  };
+
+  const handlePlay = (item: any, type: 'live' | 'movie' | 'series') => {
+    if (onPlayItem) onPlayItem(item, type);
+    else if (onPlay) onPlay(item);
+  };
+
+  const handleSelectMovie = (m: Movie) => {
+    if (onSelectMovie) onSelectMovie(m);
+    else if (onOpenDetails) onOpenDetails(m);
+  };
+
+  const handleSelectSeries = (s: Series) => {
+    if (onSelectSeries) onSelectSeries(s);
+    else if (onOpenDetails) onOpenDetails(s);
+  };
+
   // Filmes e Séries favoritados para a seção de Favoritos da Home
   const favoriteMovies = movies.filter((m) => favoritesMap[m.id]);
-  const favoriteSeries = seriesList.filter((s) => favoritesMap[s.id]);
+  const favoriteSeries = actualSeriesList.filter((s) => favoritesMap[s.id]);
   const favoriteChannels = channels.filter((c) => favoritesMap[c.id]);
 
   return (
-    <div className="flex-1 overflow-y-auto space-y-8 p-4 md:p-8 font-sans no-scrollbar pb-24 md:pb-8 bg-slate-950 text-slate-100">
+    <div className="flex-1 overflow-y-auto space-y-6 md:space-y-8 p-4 md:p-8 font-sans no-scrollbar pb-6 md:pb-8 bg-slate-950 text-slate-100">
       {/* HEADER DA HOME - LOGO & TITULO */}
       <div className="flex items-center justify-between pb-2">
         <div>
@@ -51,15 +81,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       </div>
 
       {/* 1. NAVEGAÇÃO PRINCIPAL - 3 TILES GRANDES SMART TV */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-3 gap-3 md:gap-6">
         {/* TV AO VIVO */}
         <button
           tabIndex={0}
-          onClick={() => setActiveTab('livetv')}
+          onClick={() => navigate('livetv')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
               e.preventDefault();
-              setActiveTab('livetv');
+              navigate('livetv');
             }
           }}
           className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-cyan-900/60 via-slate-900 to-slate-950 border-2 border-cyan-500/30 hover:border-cyan-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
@@ -78,11 +108,11 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* FILMES */}
         <button
           tabIndex={0}
-          onClick={() => setActiveTab('movies')}
+          onClick={() => navigate('movies')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
               e.preventDefault();
-              setActiveTab('movies');
+              navigate('movies');
             }
           }}
           className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-emerald-900/60 via-slate-900 to-slate-950 border-2 border-emerald-500/30 hover:border-emerald-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
@@ -101,11 +131,11 @@ export const HomePage: React.FC<HomePageProps> = ({
         {/* SÉRIES */}
         <button
           tabIndex={0}
-          onClick={() => setActiveTab('series')}
+          onClick={() => navigate('series')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
               e.preventDefault();
-              setActiveTab('series');
+              navigate('series');
             }
           }}
           className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-purple-900/60 via-slate-900 to-slate-950 border-2 border-purple-500/30 hover:border-purple-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
@@ -117,7 +147,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             [ SÉRIES ]
           </span>
           <span className="text-xs font-bold text-purple-400 mt-1">
-            {seriesList.length > 0 ? `${seriesList.length} SÉRIES NO CATÁLOGO` : 'TEMPORADAS & EPISÓDIOS'}
+            {actualSeriesList.length > 0 ? `${actualSeriesList.length} SÉRIES NO CATÁLOGO` : 'TEMPORADAS & EPISÓDIOS'}
           </span>
         </button>
       </div>
@@ -132,8 +162,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </h2>
             <button
               tabIndex={0}
-              onClick={() => setActiveTab('history')}
-              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg"
+              onClick={() => navigate('history')}
+              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg cursor-pointer"
             >
               Ver Histórico Completo
             </button>
@@ -148,15 +178,15 @@ export const HomePage: React.FC<HomePageProps> = ({
                 onClick={() => {
                   const ch = channels.find((c) => c.id === item.contentId);
                   const mov = movies.find((m) => m.id === item.contentId);
-                  if (ch) onPlayItem(ch, 'live');
-                  else if (mov) onPlayItem(mov, 'movie');
+                  if (ch) handlePlay(ch, 'live');
+                  else if (mov) handlePlay(mov, 'movie');
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23) {
+                  if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
                     const ch = channels.find((c) => c.id === item.contentId);
                     const mov = movies.find((m) => m.id === item.contentId);
-                    if (ch) onPlayItem(ch, 'live');
-                    else if (mov) onPlayItem(mov, 'movie');
+                    if (ch) handlePlay(ch, 'live');
+                    else if (mov) handlePlay(mov, 'movie');
                   }
                 }}
                 className="group relative rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden cursor-pointer transition-all hover:border-cyan-500 focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none flex flex-col justify-between"
@@ -198,8 +228,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </h2>
             <button
               tabIndex={0}
-              onClick={() => setActiveTab('favorites')}
-              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg"
+              onClick={() => navigate('favorites')}
+              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg cursor-pointer"
             >
               Ver Todos ({Object.keys(favoritesMap).length})
             </button>
@@ -211,8 +241,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                 key={mov.id}
                 item={mov}
                 type="movie"
-                onPlay={() => onPlayItem(mov, 'movie')}
-                onSelect={() => onSelectMovie(mov)}
+                onPlay={() => handlePlay(mov, 'movie')}
+                onSelect={() => handleSelectMovie(mov)}
                 onToggleFavorite={onToggleFavorite}
                 isFavorite={true}
               />
@@ -223,8 +253,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                 key={ser.id}
                 item={ser}
                 type="series"
-                onPlay={() => onPlayItem(ser, 'series')}
-                onSelect={() => onSelectSeries(ser)}
+                onPlay={() => handlePlay(ser, 'series')}
+                onSelect={() => handleSelectSeries(ser)}
                 onToggleFavorite={onToggleFavorite}
                 isFavorite={true}
               />
@@ -243,8 +273,8 @@ export const HomePage: React.FC<HomePageProps> = ({
             </h2>
             <button
               tabIndex={0}
-              onClick={() => setActiveTab('movies')}
-              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg"
+              onClick={() => navigate('movies')}
+              className="text-xs font-semibold text-cyan-400 hover:underline focus:ring-2 focus:ring-cyan-400 focus:outline-none px-2 py-1 rounded-lg cursor-pointer"
             >
               Ver Catálogo Completo
             </button>
@@ -256,8 +286,8 @@ export const HomePage: React.FC<HomePageProps> = ({
                 key={mov.id}
                 item={mov}
                 type="movie"
-                onPlay={() => onPlayItem(mov, 'movie')}
-                onSelect={() => onSelectMovie(mov)}
+                onPlay={() => handlePlay(mov, 'movie')}
+                onSelect={() => handleSelectMovie(mov)}
                 onToggleFavorite={onToggleFavorite}
                 isFavorite={!!favoritesMap[mov.id]}
               />

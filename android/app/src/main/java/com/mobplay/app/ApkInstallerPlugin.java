@@ -44,13 +44,35 @@ public class ApkInstallerPlugin extends Plugin {
                     }
                 }
 
-                // 2. Baixar o arquivo APK da URL oficial do GitHub
+                // 2. Baixar o arquivo APK resolvendo redirecionamentos (ex: GitHub raw para CDN)
                 URL url = new URL(apkUrl);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(15000);
-                conn.connect();
+                conn.setInstanceFollowRedirects(true);
+                conn.setRequestProperty("User-Agent", "MobPlay-AndroidTV/1.0");
+                conn.setConnectTimeout(25000);
+                conn.setReadTimeout(25000);
+                int status = conn.getResponseCode();
+
+                int redirects = 0;
+                while ((status == HttpURLConnection.HTTP_MOVED_TEMP || 
+                        status == HttpURLConnection.HTTP_MOVED_PERM || 
+                        status == HttpURLConnection.HTTP_SEE_OTHER || 
+                        status == 307 || status == 308) && redirects < 5) {
+                    String newUrl = conn.getHeaderField("Location");
+                    conn.disconnect();
+                    url = new URL(newUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setInstanceFollowRedirects(true);
+                    conn.setRequestProperty("User-Agent", "MobPlay-AndroidTV/1.0");
+                    conn.setConnectTimeout(25000);
+                    conn.setReadTimeout(25000);
+                    status = conn.getResponseCode();
+                    redirects++;
+                }
+
+                if (status < 200 || status >= 300) {
+                    throw new Exception("Servidor retornou status HTTP " + status);
+                }
 
                 File outputFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "MobPlay_Update.apk");
                 if (outputFile.exists()) {
@@ -87,5 +109,13 @@ public class ApkInstallerPlugin extends Plugin {
                 call.reject("Erro ao baixar ou instalar APK: " + e.getMessage());
             }
         }).start();
+    }
+
+    @PluginMethod
+    public void exitApp(PluginCall call) {
+        if (getActivity() != null) {
+            getActivity().finishAffinity();
+        }
+        call.resolve();
     }
 }

@@ -5,7 +5,7 @@ node_modules/
 dist/
 dist-electron/
 release/
-*.apk
+!MobPlay.apk
 
 # Android build outputs
 android/app/build/

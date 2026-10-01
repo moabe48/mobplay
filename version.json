@@ -1,6 +1,6 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.5: Interceptação nativa do botão VOLTAR do controle da Android TV (não fecha o app), menu superior 100% visível em TVs Philips/Google TV, botões da Home funcionais e atualizador nativo 1-Click!",
+  "releaseNotes": "Versão 1.0.6: Pente fino definitivo: interceptação da tecla VOLTAR do controle remoto Android TV (não fecha o app, volta etapas internas), layout 100% idêntico na televisão e PC com 3 colunas em Live TV, botões da Home totalmente funcionais via D-Pad/OK e atualização OTA nativa com download direto do GitHub.",
   "mandatory": true
 }

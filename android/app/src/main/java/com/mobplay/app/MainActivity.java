@@ -26,10 +26,24 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent event) {
+        if (event.getKeyCode() == android.view.KeyEvent.KEYCODE_BACK && event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+            if (this.bridge != null && this.bridge.getWebView() != null) {
+                this.bridge.getWebView().evaluateJavascript(
+                    "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'GoBack', code: 'GoBack', keyCode: 4, which: 4, bubbles: true, cancelable: true }));",
+                    null
+                );
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
     public void onBackPressed() {
         if (this.bridge != null && this.bridge.getWebView() != null) {
             this.bridge.getWebView().evaluateJavascript(
-                "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'GoBack', keyCode: 4, bubbles: true }));",
+                "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'GoBack', code: 'GoBack', keyCode: 4, which: 4, bubbles: true, cancelable: true }));",
                 null
             );
         } else {
