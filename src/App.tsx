@@ -317,24 +317,14 @@ export const App: React.FC = () => {
 
       {/* 3. Aplicação Principal StreamBox */}
       {account && !isSyncing && (
-        <>
-          {/* Sidebar Vertical Retrátil */}
-          <Sidebar
+        <div className="flex-1 flex flex-col h-full w-full overflow-hidden">
+          {/* Header Superior (Top Nav Bar) */}
+          <Header
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            collapsed={sidebarCollapsed}
-            setCollapsed={setSidebarCollapsed}
+            onRefreshData={() => handleConnectAccount(account)}
+            isSyncing={isSyncing}
           />
-
-          {/* Área Principal de Conteúdo */}
-          <div className="flex-1 flex flex-col h-full overflow-hidden">
-            {/* Header Superior (Top Nav Bar) */}
-            <Header
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              onRefreshData={() => handleConnectAccount(account)}
-              isSyncing={isSyncing}
-            />
 
             {/* Roteamento de Páginas */}
             <main className="flex-1 overflow-hidden flex flex-col relative bg-dark-bg">
@@ -481,7 +471,6 @@ export const App: React.FC = () => {
                 />
               )}
             </main>
-          </div>
 
           {/* Barra de Navegação Inferior para Celular */}
           <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -524,7 +513,7 @@ export const App: React.FC = () => {
               onClose={() => setUpdateAvailable(null)}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );
