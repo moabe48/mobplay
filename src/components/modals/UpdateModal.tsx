@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
-import { Download, Sparkles, X, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Download, Sparkles, X, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { UpdateInfo } from '../../services/update/updateService';
 import { APP_CONFIG } from '../../config/updateConfig';
+
+const ApkInstaller = registerPlugin<{
+  installApk(options: { url: string }): Promise<{ success: boolean }>;
+}>('ApkInstaller');
 
 interface UpdateModalProps {
   updateInfo: UpdateInfo;
@@ -10,12 +15,23 @@ interface UpdateModalProps {
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose }) => {
   const [downloading, setDownloading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
-  const handleStartUpdate = () => {
+  const handleStartUpdate = async () => {
+    if (!updateInfo.apkUrl) return;
     setDownloading(true);
-    if (updateInfo.apkUrl) {
-      // Abre o link direto do APK para o Android baixar e instalar
-      window.open(updateInfo.apkUrl, '_system');
+    setStatusMsg('Baixando APK e abrindo o Instalador do Android...');
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await ApkInstaller.installApk({ url: updateInfo.apkUrl });
+      } else {
+        window.location.href = updateInfo.apkUrl;
+      }
+    } catch (err: any) {
+      console.error('Erro ao instalar APK:', err);
+      setStatusMsg('Abrindo download no navegador...');
+      window.location.href = updateInfo.apkUrl;
     }
   };
 

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.3: Layout 100% otimizado para Smart TV e TV Box! Novo menu superior clean, remoção da barra lateral, visual idêntico ao modelo oficial, performance ultrarrápida e canal com EPG e preview!",
+  "releaseNotes": "Versão 1.0.4: Instalação automática nativa de atualizações na TV (OTA 1-Click), suporte total aos botões grandes da Home em Philips Android TV / Google TV e adaptação visual responsiva para todas as resoluções!",
   "mandatory": true
 }

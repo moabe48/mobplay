@@ -56,7 +56,13 @@ export const HomePage: React.FC<HomePageProps> = ({
         <button
           tabIndex={0}
           onClick={() => setActiveTab('livetv')}
-          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-cyan-900/60 via-slate-900 to-slate-950 border-2 border-cyan-500/30 hover:border-cyan-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+              e.preventDefault();
+              setActiveTab('livetv');
+            }
+          }}
+          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-cyan-900/60 via-slate-900 to-slate-950 border-2 border-cyan-500/30 hover:border-cyan-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
         >
           <div className="p-4 rounded-2xl bg-cyan-500/20 text-cyan-400 mb-4 group-hover:scale-110 transition-transform">
             <Tv className="w-12 h-12 stroke-[2.5]" />
@@ -73,7 +79,13 @@ export const HomePage: React.FC<HomePageProps> = ({
         <button
           tabIndex={0}
           onClick={() => setActiveTab('movies')}
-          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-emerald-900/60 via-slate-900 to-slate-950 border-2 border-emerald-500/30 hover:border-emerald-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+              e.preventDefault();
+              setActiveTab('movies');
+            }
+          }}
+          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-emerald-900/60 via-slate-900 to-slate-950 border-2 border-emerald-500/30 hover:border-emerald-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
         >
           <div className="p-4 rounded-2xl bg-emerald-500/20 text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
             <Film className="w-12 h-12 stroke-[2.5]" />
@@ -90,7 +102,13 @@ export const HomePage: React.FC<HomePageProps> = ({
         <button
           tabIndex={0}
           onClick={() => setActiveTab('series')}
-          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-purple-900/60 via-slate-900 to-slate-950 border-2 border-purple-500/30 hover:border-purple-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+              e.preventDefault();
+              setActiveTab('series');
+            }
+          }}
+          className="group relative flex flex-col items-center justify-center p-8 rounded-3xl bg-gradient-to-br from-purple-900/60 via-slate-900 to-slate-950 border-2 border-purple-500/30 hover:border-purple-400 transition-all focus:ring-4 focus:ring-cyan-400 focus:scale-105 focus:outline-none shadow-2xl text-center cursor-pointer"
         >
           <div className="p-4 rounded-2xl bg-purple-500/20 text-purple-400 mb-4 group-hover:scale-110 transition-transform">
             <Clapperboard className="w-12 h-12 stroke-[2.5]" />
