@@ -1,7 +1,7 @@
 export type SourceType = 'xtream' | 'm3u_url' | 'm3u_file' | 'demo';
 
 export interface IPTVAccount {
-  id?: string;
+  id: string;
   name: string;
   type: SourceType;
   serverUrl?: string;
@@ -19,11 +19,13 @@ export interface Category {
   id: string;
   name: string;
   type: 'live' | 'movie' | 'series';
+  accountId?: string;
 }
 
 export interface Channel {
   id: string;
   streamId: string | number;
+  number?: number;
   name: string;
   logo?: string;
   categoryId: string;
@@ -31,6 +33,8 @@ export interface Channel {
   url: string;
   epgId?: string;
   isFavorite?: boolean;
+  sourceType?: SourceType;
+  accountId?: string;
 }
 
 export interface Movie {
@@ -50,6 +54,8 @@ export interface Movie {
   containerExtension?: string;
   url: string;
   isFavorite?: boolean;
+  sourceType?: SourceType;
+  accountId?: string;
 }
 
 export interface Series {
@@ -65,6 +71,8 @@ export interface Series {
   genre?: string;
   synopsis?: string;
   isFavorite?: boolean;
+  sourceType?: SourceType;
+  accountId?: string;
 }
 
 export interface Episode {
@@ -107,6 +115,8 @@ export interface WatchHistoryItem {
   updatedAt: string;
 }
 
+export type BufferProfile = 'low' | 'normal' | 'high';
+
 export interface AppSettings {
   accentColor: string;
   cardSize: 'small' | 'medium' | 'large';
@@ -114,6 +124,7 @@ export interface AppSettings {
   autoPlayNext: boolean;
   rememberPosition: boolean;
   bufferLength: number; // segundos
+  bufferProfile: BufferProfile;
   epgAutoRefresh: boolean;
   epgRefreshInterval: number; // horas
   startWithWindows: boolean;

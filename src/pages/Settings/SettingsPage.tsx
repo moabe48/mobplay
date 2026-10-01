@@ -297,10 +297,47 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
           )}
 
           {activeSection === 'playback' && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <h3 className="text-base font-bold text-white border-b border-slate-800 pb-3">
-                Configurações de Reprodução
+                Configurações de Reprodução e Buffer IPTV
               </h3>
+              
+              <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+                <label className="text-xs font-bold text-white block">
+                  Perfil de Buffer para Transmissões (IPTV Stream Buffer)
+                </label>
+                <p className="text-xs text-slate-400">
+                  Ajuste o tamanho do buffer. O perfil **NORMAL** é recomendado para conexões estáveis. Em conexões mais lentas use **ALTO**; para troca ultrarrápida de canal use **BAIXO**.
+                </p>
+
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  {[
+                    { id: 'low', label: 'BAIXO', desc: 'Início ultrarrápido (3s buffer)' },
+                    { id: 'normal', label: 'NORMAL', desc: 'Recomendado (6s buffer)' },
+                    { id: 'high', label: 'ALTO', desc: 'Conexões lentas (12s buffer)' },
+                  ].map((buf) => (
+                    <button
+                      key={buf.id}
+                      tabIndex={0}
+                      onClick={() => {
+                        onUpdateSettings({ bufferLength: buf.id === 'low' ? 3 : buf.id === 'high' ? 12 : 6 });
+                        showToast(`Perfil de buffer alterado para ${buf.label}!`);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+                        (settings.bufferLength === 3 && buf.id === 'low') ||
+                        (settings.bufferLength === 12 && buf.id === 'high') ||
+                        ((!settings.bufferLength || settings.bufferLength === 6 || settings.bufferLength === 10) && buf.id === 'normal')
+                          ? 'bg-gradient-to-r from-cyan-600 to-emerald-600 border-cyan-400 text-white font-bold shadow-lg'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900'
+                      }`}
+                    >
+                      <span className="text-xs font-black block">{buf.label}</span>
+                      <span className="text-[10px] text-slate-300 block mt-0.5">{buf.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <label className="flex items-center justify-between p-4 rounded-2xl bg-slate-900 border border-slate-800 cursor-pointer">
                   <span className="text-xs font-semibold text-slate-200">Reprodução Automática de Próximo Episódio</span>
