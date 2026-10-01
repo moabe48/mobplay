@@ -24,4 +24,16 @@ public class MainActivity extends BridgeActivity {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public void onBackPressed() {
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().evaluateJavascript(
+                "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'GoBack', keyCode: 4, bubbles: true }));",
+                null
+            );
+        } else {
+            super.onBackPressed();
+        }
+    }
 }

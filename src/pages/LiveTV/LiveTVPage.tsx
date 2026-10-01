@@ -298,8 +298,8 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
         </div>
       </div>
 
-      {/* 3. CARD PREVIEW & EPG (COLUNA DIREITA MATCHING SCREENSHOT) */}
-      <div className="hidden lg:flex w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex-col shrink-0 overflow-hidden shadow-2xl">
+      {/* 3. CARD PREVIEW & EPG (COLUNA DIREITA SEMPRE VISÍVEL NA TV) */}
+      <div className="flex w-80 md:w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex-col shrink-0 overflow-hidden shadow-2xl">
         <LiveMiniPreview
           channel={selectedChannel}
           epgPrograms={epgPrograms}

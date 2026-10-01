@@ -95,6 +95,37 @@ export const App: React.FC = () => {
     loadInitialData();
   }, []);
 
+  // Interceptador Global do Botão VOLTAR (Hardware BACK Button da Android TV)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === 'GoBack' ||
+        e.key === 'Back' ||
+        e.key === 'Escape' ||
+        e.keyCode === 4 ||
+        e.keyCode === 27
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (activePlayerItem) {
+          setActivePlayerItem(null);
+        } else if (selectedMovie) {
+          setSelectedMovie(null);
+        } else if (selectedSeries) {
+          setSelectedSeries(null);
+        } else if (updateAvailable) {
+          setUpdateAvailable(null);
+        } else if (activeTab !== 'home') {
+          setActiveTab('home');
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown, true);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
+  }, [activePlayerItem, selectedMovie, selectedSeries, updateAvailable, activeTab]);
+
   const loadInitialData = async () => {
     try {
       // Checar se há atualizações OTA no servidor

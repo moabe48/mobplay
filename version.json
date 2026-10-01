@@ -1,6 +1,6 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.4: Instalação automática nativa de atualizações na TV (OTA 1-Click), suporte total aos botões grandes da Home em Philips Android TV / Google TV e adaptação visual responsiva para todas as resoluções!",
+  "releaseNotes": "Versão 1.0.5: Interceptação nativa do botão VOLTAR do controle da Android TV (não fecha o app), menu superior 100% visível em TVs Philips/Google TV, botões da Home funcionais e atualizador nativo 1-Click!",
   "mandatory": true
 }

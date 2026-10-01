@@ -41,17 +41,27 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-16 md:h-20 bg-slate-950/95 border-b border-slate-900 px-4 md:px-8 flex items-center justify-between gap-4 z-40 select-none">
       {/* 1. LOGO MOBPLAY ESQUERDA */}
-      <div className="flex items-center gap-2.5 shrink-0 cursor-pointer" onClick={() => setActiveTab('home')}>
+      <button
+        tabIndex={0}
+        onClick={() => setActiveTab('home')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+            e.preventDefault();
+            setActiveTab('home');
+          }
+        }}
+        className="flex items-center gap-2.5 shrink-0 cursor-pointer focus:ring-2 focus:ring-cyan-400 focus:outline-none p-1.5 rounded-xl"
+      >
         <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
           <Play className="w-5 h-5 fill-cyan-400 text-cyan-400 ml-0.5" />
         </div>
         <span className="text-xl md:text-2xl font-black text-white tracking-wide font-sans">
           Mob<span className="text-cyan-400">Play</span>
         </span>
-      </div>
+      </button>
 
-      {/* 2. BARRA DE NAVEGAÇÃO CENTRAL (PILLS SMART TV) */}
-      <nav className="hidden lg:flex items-center gap-2">
+      {/* 2. BARRA DE NAVEGAÇÃO CENTRAL (PILLS SMART TV - SEMPRE VISÍVEL) */}
+      <nav className="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar py-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
@@ -59,7 +69,13 @@ export const Header: React.FC<HeaderProps> = ({
               key={item.id}
               tabIndex={0}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold tracking-wider transition-all duration-150 focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+                  e.preventDefault();
+                  setActiveTab(item.id);
+                }
+              }}
+              className={`flex items-center gap-2 px-3 md:px-4 py-2 rounded-2xl text-xs font-bold tracking-wider transition-all duration-150 shrink-0 cursor-pointer focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
                 isActive
                   ? 'bg-cyan-500/20 border-2 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
                   : 'bg-transparent border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -73,11 +89,17 @@ export const Header: React.FC<HeaderProps> = ({
       </nav>
 
       {/* 3. ÍCONES E RELÓGIO DIREITA */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <button
           tabIndex={0}
           onClick={() => setActiveTab('search')}
-          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+              e.preventDefault();
+              setActiveTab('search');
+            }
+          }}
+          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
           title="Buscar"
         >
           <Search className="w-5 h-5" />
@@ -86,7 +108,13 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           tabIndex={0}
           onClick={() => setActiveTab('settings')}
-          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === 'Select' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 66) {
+              e.preventDefault();
+              setActiveTab('settings');
+            }
+          }}
+          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
           title="Configurações"
         >
           <Settings className="w-5 h-5" />
