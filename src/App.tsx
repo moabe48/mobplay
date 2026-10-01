@@ -328,12 +328,10 @@ export const App: React.FC = () => {
 
           {/* Área Principal de Conteúdo */}
           <div className="flex-1 flex flex-col h-full overflow-hidden">
-            {/* Header Superior */}
+            {/* Header Superior (Top Nav Bar) */}
             <Header
-              account={account}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              onOpenSearch={() => setActiveTab('search')}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
               onRefreshData={() => handleConnectAccount(account)}
               isSyncing={isSyncing}
             />

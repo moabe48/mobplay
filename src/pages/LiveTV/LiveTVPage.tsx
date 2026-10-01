@@ -1,5 +1,23 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Tv, Search, Heart, Play, List, Clock } from 'lucide-react';
+import {
+  Tv,
+  Search,
+  Heart,
+  Play,
+  List,
+  Clock,
+  Star,
+  Grid,
+  Trophy,
+  Film,
+  Newspaper,
+  Smile,
+  Music,
+  Radio,
+  Maximize2,
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react';
 import { Channel, Category, EPGProgram } from '../../types/iptv';
 import { LiveMiniPreview } from '../../components/player/LiveMiniPreview';
 
@@ -46,7 +64,18 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
     return result;
   }, [channels, selectedCategoryId, favoritesMap, searchQuery]);
 
-  // Mapeamento de Programa Atual por Canal (com correspondência flexível e gerador automático)
+  // Contagem por categoria
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const ch of channels) {
+      if (ch.categoryId) {
+        map[ch.categoryId] = (map[ch.categoryId] || 0) + 1;
+      }
+    }
+    return map;
+  }, [channels]);
+
+  // Mapeamento EPG Atual
   const currentEpgMap = useMemo(() => {
     const map: Record<string, string> = {};
     const nowMs = Date.now();
@@ -57,7 +86,6 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
       const epgId = String(ch.epgId || '').toLowerCase();
       const chName = String(ch.name).toLowerCase();
 
-      // Procurar nos programas EPG reais do servidor
       const foundProg = epgPrograms.find((p) => {
         if (!p) return false;
         const pChId = String(p.channelId).toLowerCase();
@@ -74,127 +102,132 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
       if (foundProg) {
         map[ch.id] = foundProg.title;
       } else {
-        // Fallback dinâmico para garantir que todos os canais tenham EPG ativo
         const catLower = (ch.categoryName || '').toLowerCase();
         if (catLower.includes('esporte') || catLower.includes('sport')) {
-          map[ch.id] = `${ch.name}: Cobertura Esportiva ao Vivo`;
+          map[ch.id] = `Jornal da Noite`;
         } else if (catLower.includes('notíc') || catLower.includes('news')) {
-          map[ch.id] = `${ch.name}: Jornalismo e Notícias 24h`;
+          map[ch.id] = `Notícias do Mundo`;
         } else if (catLower.includes('filme') || catLower.includes('cinema')) {
-          map[ch.id] = `Sessão de Filmes: ${ch.name}`;
+          map[ch.id] = `Sessão da Tarde`;
+        } else if (catLower.includes('infantil') || catLower.includes('kids')) {
+          map[ch.id] = `Mundo Infantil`;
         } else {
-          map[ch.id] = `${ch.name}: Transmissão ao Vivo`;
+          map[ch.id] = `Transmissão ao Vivo`;
         }
       }
     }
     return map;
   }, [channels, epgPrograms]);
 
-  // Ao mudar de categoria, definir primeiro canal por padrão
   useEffect(() => {
     if (filteredChannels.length > 0 && (!selectedChannel || !filteredChannels.some(c => c.id === selectedChannel.id))) {
       setSelectedChannel(filteredChannels[0]);
     }
   }, [filteredChannels]);
 
-  // Debounce no foco para evitar gargalos durante rolagem rápida do D-Pad
   const handleChannelFocus = (ch: Channel) => {
-    if (focusTimeoutRef.current) {
-      clearTimeout(focusTimeoutRef.current);
-    }
+    if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
     focusTimeoutRef.current = setTimeout(() => {
       setSelectedChannel(ch);
-    }, 120);
+    }, 150);
+  };
+
+  // Helper para ícone por nome de categoria
+  const getCategoryIcon = (catName: string) => {
+    const lower = catName.toLowerCase();
+    if (lower.includes('esporte') || lower.includes('sport')) return <Trophy className="w-4 h-4 text-cyan-400" />;
+    if (lower.includes('filme') || lower.includes('cinema')) return <Film className="w-4 h-4 text-emerald-400" />;
+    if (lower.includes('notíc') || lower.includes('news')) return <Newspaper className="w-4 h-4 text-amber-400" />;
+    if (lower.includes('infantil') || lower.includes('kids')) return <Smile className="w-4 h-4 text-pink-400" />;
+    if (lower.includes('música') || lower.includes('music')) return <Music className="w-4 h-4 text-purple-400" />;
+    return <Tv className="w-4 h-4 text-slate-400" />;
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-slate-950 text-slate-100 font-sans pb-20 md:pb-0">
-      {/* 1. CATEGORIAS DE CANAIS (COLUNA DA ESQUERDA) */}
-      <div className="w-full md:w-60 bg-slate-950 border-r border-slate-800 flex flex-col shrink-0">
-        <div className="p-4 border-b border-slate-800 space-y-3">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Tv className="w-5 h-5 text-cyan-400" />
-            <span>TV ao Vivo</span>
-          </h2>
-
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar canal..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30"
-            />
-          </div>
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-slate-950 text-slate-100 font-sans p-3 md:p-6 gap-4 select-none pb-20 md:pb-6">
+      {/* 1. CARD CATEGORIAS (COLUNA ESQUERDA) */}
+      <div className="w-full md:w-64 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 shadow-2xl overflow-hidden">
+        <div className="p-4 border-b border-slate-800/60">
+          <h2 className="text-base font-bold text-white tracking-wide">Categorias</h2>
         </div>
 
-        {/* Lista de Categorias Focável por D-Pad */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1 no-scrollbar">
-          <button
-            tabIndex={0}
-            onClick={() => setSelectedCategoryId('all')}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
-              selectedCategoryId === 'all'
-                ? 'bg-gradient-to-r from-cyan-600 to-emerald-600 text-white font-bold'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-white'
-            }`}
-          >
-            <span className="truncate">Todos os Canais</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 text-slate-300">
-              {channels.length}
-            </span>
-          </button>
-
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5 no-scrollbar">
+          {/* Favoritos */}
           <button
             tabIndex={0}
             onClick={() => setSelectedCategoryId('favorites')}
-            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+            className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
               selectedCategoryId === 'favorites'
-                ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold'
-                : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+            <div className="flex items-center gap-3">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
               <span>Favoritos</span>
             </div>
-            <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-900 text-slate-300">
+            <span className="text-[11px] text-slate-400 font-mono">
               {Object.keys(favoritesMap).length}
             </span>
           </button>
 
+          {/* Todos */}
+          <button
+            tabIndex={0}
+            onClick={() => setSelectedCategoryId('all')}
+            className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+              selectedCategoryId === 'all'
+                ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Grid className="w-4 h-4 text-cyan-400" />
+              <span>Todos</span>
+            </div>
+            <span className="text-[11px] text-slate-400 font-mono">
+              {channels.length}
+            </span>
+          </button>
+
+          {/* Lista de Categorias Reais */}
           {liveCategories.map((cat) => (
             <button
               key={cat.id}
               tabIndex={0}
               onClick={() => setSelectedCategoryId(cat.id)}
-              className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-semibold truncate transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+              className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
                 selectedCategoryId === cat.id
-                  ? 'bg-gradient-to-r from-cyan-600 to-emerald-600 text-white font-bold'
-                  : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                  ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'
               }`}
             >
-              {cat.name}
+              <div className="flex items-center gap-3 truncate pr-2">
+                {getCategoryIcon(cat.name)}
+                <span className="truncate">{cat.name}</span>
+              </div>
+              <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                {categoryCounts[cat.id] || 0}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* 2. MODO LISTA DE CANAIS (COLUNA CENTRAL) */}
-      <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 no-scrollbar">
-        <div className="flex items-center justify-between pb-2 border-b border-slate-800/80 px-2">
-          <div className="flex items-center gap-2 text-xs text-slate-300 font-bold">
-            <List className="w-4 h-4 text-cyan-400" />
-            <span>Lista de Canais ({filteredChannels.length})</span>
-          </div>
+      {/* 2. CARD CANAIS (COLUNA CENTRAL) */}
+      <div className="flex-1 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-slate-800/60 flex items-center justify-between">
+          <h2 className="text-base font-bold text-white tracking-wide">Canais</h2>
+          <span className="text-xs text-slate-400 font-mono">
+            {filteredChannels.length} canais
+          </span>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 no-scrollbar">
           {filteredChannels.slice(0, 300).map((ch, idx) => {
             const isSelected = selectedChannel?.id === ch.id;
-            const isFav = !!favoritesMap[ch.id];
-            const currentProgramTitle = currentEpgMap[ch.id];
+            const seqNum = String(idx + 1).padStart(3, '0');
+            const programName = currentEpgMap[ch.id] || 'Transmissão ao Vivo';
 
             return (
               <div
@@ -220,20 +253,20 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                     onPlayChannel(ch);
                   }
                 }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all duration-100 focus:outline-none focus:ring-4 focus:ring-cyan-400 focus:scale-[1.01] ${
+                className={`w-full flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-cyan-400 ${
                   isSelected
-                    ? 'bg-gradient-to-r from-cyan-950/80 to-slate-900 border-cyan-500/60 text-white shadow-lg'
-                    : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-900 hover:text-white'
+                    ? 'bg-cyan-950/60 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                    : 'bg-slate-950/40 border border-slate-800/60 text-slate-300 hover:bg-slate-800/50 hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3.5 min-w-0">
-                  {/* Número de Sequência */}
-                  <span className="text-xs font-extrabold text-slate-500 w-6 text-center shrink-0">
-                    {idx + 1}
+                  {/* Número de Sequência 001, 002... */}
+                  <span className="text-xs font-bold text-slate-400 font-mono w-8 text-center shrink-0">
+                    {seqNum}
                   </span>
 
-                  {/* Logo Quadrada sem Corte */}
-                  <div className="w-12 h-12 rounded-xl bg-white/95 p-1 shadow-md shrink-0 border border-cyan-500/30 flex items-center justify-center">
+                  {/* Logo Quadrada Estilizada */}
+                  <div className="w-10 h-10 rounded-xl bg-slate-950 p-1 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
                     {ch.logo ? (
                       <img
                         src={ch.logo}
@@ -244,43 +277,29 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                         }}
                       />
                     ) : (
-                      <Tv className="w-6 h-6 text-slate-800" />
+                      <Tv className="w-5 h-5 text-cyan-400" />
                     )}
                   </div>
 
-                  {/* Nome do Canal & Programa EPG no Ar */}
+                  {/* Nome do Canal & Subtítulo do Programa */}
                   <div className="min-w-0 text-left">
-                    <p className="text-sm font-bold text-white truncate tracking-wide">{ch.name}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-cyan-400 truncate mt-0.5 font-semibold">
-                      <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
-                      <span className="truncate">{currentProgramTitle}</span>
-                    </div>
+                    <p className="text-sm font-bold text-white truncate">{ch.name}</p>
+                    <p className="text-xs text-slate-400 truncate mt-0.5 font-medium">{programName}</p>
                   </div>
                 </div>
 
-                {/* Ações Rápidas */}
-                <div className="flex items-center gap-2 shrink-0">
-                  {isFav && <Heart className="w-4 h-4 text-red-500 fill-red-500" />}
-
-                  <button
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPlayChannel(ch);
-                    }}
-                    className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500 hover:text-slate-950 transition-colors"
-                  >
-                    <Play className="w-4 h-4 fill-current ml-0.5" />
-                  </button>
-                </div>
+                {/* Ícone de Favorito */}
+                {favoritesMap[ch.id] && (
+                  <Heart className="w-4 h-4 text-red-500 fill-red-500 shrink-0 ml-2" />
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* 3. PAINEL DE PRÉ-VISUALIZAÇÃO AO VIVO & EPG (COLUNA DA DIREITA) */}
-      <div className="hidden lg:block w-96 shrink-0 h-full">
+      {/* 3. CARD PREVIEW & EPG (COLUNA DIREITA MATCHING SCREENSHOT) */}
+      <div className="hidden lg:flex w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex-col shrink-0 overflow-hidden shadow-2xl">
         <LiveMiniPreview
           channel={selectedChannel}
           epgPrograms={epgPrograms}
@@ -292,3 +311,4 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
     </div>
   );
 };
+

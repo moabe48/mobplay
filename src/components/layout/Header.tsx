@@ -1,74 +1,104 @@
-import React from 'react';
-import { Search, RefreshCw, Wifi, ShieldCheck, UserCheck } from 'lucide-react';
-import { IPTVAccount } from '../../types/iptv';
+import React, { useState, useEffect } from 'react';
+import { Tv, Film, Clapperboard, Heart, Search, Settings, Play } from 'lucide-react';
+import { NavTab } from './Sidebar';
 
 interface HeaderProps {
-  account: IPTVAccount | null;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  onOpenSearch: () => void;
-  onRefreshData: () => void;
-  isSyncing: boolean;
+  activeTab: NavTab;
+  setActiveTab: (tab: NavTab) => void;
+  onRefreshData?: () => void;
+  isSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  account,
-  searchQuery,
-  setSearchQuery,
-  onOpenSearch,
+  activeTab,
+  setActiveTab,
   onRefreshData,
-  isSyncing,
+  isSyncing = false,
 }) => {
+  const [timeStr, setTimeStr] = useState<string>('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      setTimeStr(`${h}:${m}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const navItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'livetv', label: 'AO VIVO', icon: <Tv className="w-4 h-4" /> },
+    { id: 'movies', label: 'FILMES', icon: <Film className="w-4 h-4" /> },
+    { id: 'series', label: 'SÉRIES', icon: <Clapperboard className="w-4 h-4" /> },
+    { id: 'favorites', label: 'FAVORITOS', icon: <Heart className="w-4 h-4" /> },
+    { id: 'search', label: 'BUSCAR', icon: <Search className="w-4 h-4" /> },
+    { id: 'settings', label: 'CONFIGURAÇÕES', icon: <Settings className="w-4 h-4" /> },
+  ];
+
   return (
-    <header className="h-20 bg-dark-header/80 backdrop-blur-md border-b border-dark-border/40 px-6 flex items-center justify-between gap-4 z-20">
-      {/* Search Input Bar */}
-      <div className="relative flex-1 max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            onOpenSearch();
-          }}
-          placeholder="Pesquisar canais, filmes, séries, episódios..."
-          className="w-full pl-10 pr-4 py-2.5 bg-dark-card/80 border border-dark-border/60 rounded-xl text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all"
-        />
+    <header className="h-16 md:h-20 bg-slate-950/95 border-b border-slate-900 px-4 md:px-8 flex items-center justify-between gap-4 z-40 select-none">
+      {/* 1. LOGO MOBPLAY ESQUERDA */}
+      <div className="flex items-center gap-2.5 shrink-0 cursor-pointer" onClick={() => setActiveTab('home')}>
+        <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
+          <Play className="w-5 h-5 fill-cyan-400 text-cyan-400 ml-0.5" />
+        </div>
+        <span className="text-xl md:text-2xl font-black text-white tracking-wide font-sans">
+          Mob<span className="text-cyan-400">Play</span>
+        </span>
       </div>
 
-      {/* Account Info & Refresh Controls */}
-      <div className="flex items-center gap-4">
-        {account && (
-          <div className="flex items-center gap-3 bg-dark-card/60 border border-dark-border/50 px-3.5 py-1.5 rounded-xl text-xs text-slate-300">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <div className="flex flex-col">
-              <span className="font-semibold text-white max-w-[140px] truncate">
-                {account.name}
-              </span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wide">
-                {account.type === 'xtream'
-                  ? 'Xtream Codes'
-                  : account.type === 'm3u_url'
-                  ? 'Lista M3U'
-                  : account.type === 'm3u_file'
-                  ? 'Arquivo M3U'
-                  : 'Modo Demonstração'}
-              </span>
-            </div>
-          </div>
-        )}
+      {/* 2. BARRA DE NAVEGAÇÃO CENTRAL (PILLS SMART TV) */}
+      <nav className="hidden lg:flex items-center gap-2">
+        {navItems.map((item) => {
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              tabIndex={0}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold tracking-wider transition-all duration-150 focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
+                isActive
+                  ? 'bg-cyan-500/20 border-2 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                  : 'bg-transparent border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-        {/* Sync / Refresh Button */}
+      {/* 3. ÍCONES E RELÓGIO DIREITA */}
+      <div className="flex items-center gap-3 shrink-0">
         <button
-          onClick={onRefreshData}
-          disabled={isSyncing}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-dark-card border border-dark-border/60 text-slate-300 hover:text-white hover:border-slate-500 transition-all text-xs font-medium disabled:opacity-50"
-          title="Sincronizar Lista e EPG"
+          tabIndex={0}
+          onClick={() => setActiveTab('search')}
+          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none"
+          title="Buscar"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-brand-500' : ''}`} />
-          <span className="hidden sm:inline">Sincronizar</span>
+          <Search className="w-5 h-5" />
         </button>
+
+        <button
+          tabIndex={0}
+          onClick={() => setActiveTab('settings')}
+          className="p-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none"
+          title="Configurações"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+
+        {timeStr && (
+          <span className="text-sm font-bold text-slate-300 font-mono pl-2 tracking-wider">
+            {timeStr}
+          </span>
+        )}
       </div>
     </header>
   );
 };
+
