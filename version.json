@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.2: Navegação por controle remoto 100% otimizada para Smart TV, suporte completo a OK/ENTER em Filmes, Séries e TV ao Vivo, e Guia EPG inteligente sem mensagens vazias!",
+  "releaseNotes": "Versão 1.0.3: Layout 100% otimizado para Smart TV e TV Box! Novo menu superior clean, remoção da barra lateral, visual idêntico ao modelo oficial, performance ultrarrápida e canal com EPG e preview!",
   "mandatory": true
 }
