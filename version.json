@@ -1,6 +1,6 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.6: Pente fino definitivo: interceptação da tecla VOLTAR do controle remoto Android TV (não fecha o app, volta etapas internas), layout 100% idêntico na televisão e PC com 3 colunas em Live TV, botões da Home totalmente funcionais via D-Pad/OK e atualização OTA nativa com download direto do GitHub.",
+  "releaseNotes": "Versão 1.0.7: Motor PlaybackManager com Fallback em Cascata (HLS/TS/MP4/MKV) para máxima compatibilidade com todos os canais e filmes, eliminação de duplo clique nos controles de TV, navegação D-Pad precisa entre as 3 colunas e OSD com troca rápida de canais em tela cheia.",
   "mandatory": true
 }

@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
 import {
   Play,
   Pause,
@@ -17,8 +16,10 @@ import {
   Settings,
   SkipBack,
   SkipForward,
+  RotateCcw,
 } from 'lucide-react';
 import { Channel, Movie, Episode, EPGProgram } from '../../types/iptv';
+import { PlaybackManager } from '../../services/player/PlaybackManager';
 
 interface StreamPlayerProps {
   item: Channel | Movie | Episode | null;
@@ -56,75 +57,68 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   const [showInfoOverlay, setShowInfoOverlay] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(true);
+  const [statusText, setStatusText] = useState<string>('Conectando...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [seekFeedback, setSeekFeedback] = useState<string | null>(null);
 
+  // OSD temporário ao trocar de canal
+  const [showChannelOsd, setShowChannelOsd] = useState<boolean>(false);
+  const osdTimerRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const seekFeedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Inicializar Hls.js ou HTML5 Video
+  const triggerChannelOsd = () => {
+    setShowChannelOsd(true);
+    if (osdTimerRef.current) clearTimeout(osdTimerRef.current);
+    osdTimerRef.current = setTimeout(() => {
+      setShowChannelOsd(false);
+    }, 3800);
+  };
+
+  // Carregar Stream via PlaybackManager Central com Fallback em Cascata
   useEffect(() => {
     if (!item || !item.url || !videoRef.current) return;
 
     setLoading(true);
     setErrorMsg(null);
-    const video = videoRef.current;
-    let hls: Hls | null = null;
+    setStatusText('Conectando ao stream...');
+    triggerChannelOsd();
 
-    if (Hls.isSupported() && (item.url.includes('.m3u8') || itemType === 'live')) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        maxBufferLength: 10,
-        maxMaxBufferLength: 20,
-        maxBufferSize: 30 * 1024 * 1024,
-        manifestLoadingTimeOut: 10000,
-        manifestLoadingMaxRetry: 3,
-        levelLoadingTimeOut: 10000,
-        fragLoadingTimeOut: 10000,
-        startLevel: -1,
-      });
-
-      hls.loadSource(item.url);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+    const pm = PlaybackManager.getInstance();
+    const unsubscribe = pm.subscribe((event) => {
+      if (event.state === 'playing') {
         setLoading(false);
-        video.play().catch(() => setIsPlaying(false));
-      });
+        setErrorMsg(null);
+        setIsPlaying(true);
+      } else if (
+        event.state === 'loading' ||
+        event.state === 'buffering' ||
+        event.state === 'reconnecting'
+      ) {
+        setLoading(true);
+        setStatusText(event.message || 'Carregando...');
+      } else if (event.state === 'error') {
+        setLoading(false);
+        setErrorMsg(event.message || 'Canal ou vídeo temporariamente indisponível.');
+      } else if (event.state === 'paused') {
+        setIsPlaying(false);
+      }
+    });
 
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              setErrorMsg('Falha de rede ao carregar a transmissão. Tentando reconectar...');
-              hls?.startLoad();
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls?.recoverMediaError();
-              break;
-            default:
-              setErrorMsg('Não foi possível carregar este conteúdo. Verifique a fonte IPTV.');
-              setLoading(false);
-              break;
-          }
-        }
-      });
-    } else {
-      // Fallback HTML5 direto para MP4 / MKV
-      video.src = item.url;
-      video.onloadeddata = () => {
-        setLoading(false);
-        video.play().catch(() => setIsPlaying(false));
-      };
-      video.onerror = () => {
-        setErrorMsg('Falha ao reproduzir o stream de mídia.');
-        setLoading(false);
-      };
-    }
+    pm.loadStream(videoRef.current, item.url, {
+      type: itemType,
+      muted: false,
+      bufferProfile: 'normal',
+    });
 
     return () => {
-      if (hls) hls.destroy();
+      unsubscribe();
+      pm.stopAndClean();
+      if (osdTimerRef.current) clearTimeout(osdTimerRef.current);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      if (seekFeedbackTimerRef.current) clearTimeout(seekFeedbackTimerRef.current);
     };
-  }, [item]);
+  }, [item?.url, itemType]);
 
   // Atualização de progresso
   const handleTimeUpdate = () => {
@@ -140,12 +134,12 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
   // Toggle Play / Pause
   const togglePlay = () => {
-    if (!videoRef.current) return;
+    const pm = PlaybackManager.getInstance();
     if (isPlaying) {
-      videoRef.current.pause();
+      pm.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play();
+      pm.play();
       setIsPlaying(true);
     }
   };
@@ -172,10 +166,10 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
+      containerRef.current.requestFullscreen().catch(() => {});
       setIsFullscreen(true);
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch(() => {});
       setIsFullscreen(false);
     }
   };
@@ -195,73 +189,156 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   };
 
   // Auto Hide Controls
-  const handleMouseMove = () => {
+  const handleUserActivity = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
       if (isPlaying) setShowControls(false);
-    }, 3500);
+    }, 4000);
   };
 
-  // Suporte a Controle Remoto de Android TV (D-Pad Key Listener)
+  // Suporte Avançado a Controle Remoto de Smart TV / Android TV
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      setShowControls(true);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = setTimeout(() => {
-        if (isPlaying) setShowControls(false);
-      }, 4000);
+      e.stopPropagation(); // Evita interferência de hooks externos na tela cheia
 
-      switch (e.key) {
-        case 'ArrowLeft':
-          if (itemType !== 'live') {
-            if (videoRef.current) videoRef.current.currentTime -= 10;
-          } else {
-            setShowChannelDrawer((prev) => !prev);
+      handleUserActivity();
+
+      const key = e.key;
+      const code = e.keyCode;
+
+      // 1. Troca de Canal Rápida (CIMA / BAIXO em TV ao Vivo)
+      if (key === 'ArrowUp' || key === 'Up' || code === 38 || code === 19) {
+        e.preventDefault();
+        if (itemType === 'live' && allChannels.length > 0 && item) {
+          const idx = allChannels.findIndex((c) => c.id === item.id);
+          if (idx > 0 && onSelectChannel) {
+            onSelectChannel(allChannels[idx - 1]);
+            triggerChannelOsd();
+          } else if (idx === 0 && onSelectChannel) {
+            // Loop para o último canal
+            onSelectChannel(allChannels[allChannels.length - 1]);
+            triggerChannelOsd();
           }
-          break;
-        case 'ArrowRight':
-          if (itemType !== 'live') {
-            if (videoRef.current) videoRef.current.currentTime += 10;
-          } else {
-            setShowChannelDrawer(true);
+        } else {
+          // Volume + em VOD
+          setVolume((v) => {
+            const nv = Math.min(1, v + 0.1);
+            if (videoRef.current) videoRef.current.volume = nv;
+            return nv;
+          });
+        }
+        return;
+      }
+
+      if (key === 'ArrowDown' || key === 'Down' || code === 40 || code === 20) {
+        e.preventDefault();
+        if (itemType === 'live' && allChannels.length > 0 && item) {
+          const idx = allChannels.findIndex((c) => c.id === item.id);
+          if (idx >= 0 && idx < allChannels.length - 1 && onSelectChannel) {
+            onSelectChannel(allChannels[idx + 1]);
+            triggerChannelOsd();
+          } else if (idx === allChannels.length - 1 && onSelectChannel) {
+            // Loop para o primeiro canal
+            onSelectChannel(allChannels[0]);
+            triggerChannelOsd();
           }
-          break;
-        case 'ArrowUp':
-          if (itemType === 'live' && allChannels.length > 0 && item) {
-            const idx = allChannels.findIndex((c) => c.id === item.id);
-            if (idx > 0 && onSelectChannel) onSelectChannel(allChannels[idx - 1]);
-          } else {
-            setVolume((v) => Math.min(1, v + 0.1));
+        } else {
+          // Volume - em VOD
+          setVolume((v) => {
+            const nv = Math.max(0, v - 0.1);
+            if (videoRef.current) videoRef.current.volume = nv;
+            return nv;
+          });
+        }
+        return;
+      }
+
+      // 2. Navegação Horizontal: Esquerda / Direita
+      if (key === 'ArrowLeft' || key === 'Left' || code === 37 || code === 21) {
+        e.preventDefault();
+        if (itemType === 'live') {
+          setShowChannelDrawer((prev) => !prev);
+        } else {
+          // Retroceder 10 segundos
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
+            showSeekBadge('⏪ -10s');
           }
-          break;
-        case 'ArrowDown':
-          if (itemType === 'live' && allChannels.length > 0 && item) {
-            const idx = allChannels.findIndex((c) => c.id === item.id);
-            if (idx >= 0 && idx < allChannels.length - 1 && onSelectChannel) onSelectChannel(allChannels[idx + 1]);
-          } else {
-            setVolume((v) => Math.max(0, v - 0.1));
+        }
+        return;
+      }
+
+      if (key === 'ArrowRight' || key === 'Right' || code === 39 || code === 22) {
+        e.preventDefault();
+        if (itemType === 'live') {
+          setShowChannelDrawer(true);
+        } else {
+          // Avançar 10 segundos
+          if (videoRef.current) {
+            videoRef.current.currentTime = Math.min(
+              videoRef.current.duration || 10000,
+              videoRef.current.currentTime + 10
+            );
+            showSeekBadge('⏩ +10s');
           }
-          break;
-        case ' ':
-        case 'Enter':
+        }
+        return;
+      }
+
+      // 3. Tecla OK / Enter / Select / Space
+      if (
+        key === 'Enter' ||
+        key === 'Select' ||
+        key === ' ' ||
+        code === 13 ||
+        code === 23 ||
+        code === 66 ||
+        code === 32 ||
+        code === 85 // MEDIA_PLAY_PAUSE
+      ) {
+        e.preventDefault();
+        if (itemType === 'live') {
+          // Em TV ao Vivo: alterna exibição do banner OSD com informações do canal
+          triggerChannelOsd();
+        } else {
+          // Em VOD: alterna Play/Pause
           togglePlay();
-          break;
-        case 'Escape':
-        case 'Back':
-        case 'GoBack':
-          if (showChannelDrawer) {
-            setShowChannelDrawer(false);
-          } else {
-            onClose();
-          }
-          break;
+        }
+        return;
+      }
+
+      // 4. Tecla VOLTAR (Back / GoBack / Escape)
+      if (
+        key === 'Escape' ||
+        key === 'Back' ||
+        key === 'GoBack' ||
+        code === 27 ||
+        code === 4
+      ) {
+        e.preventDefault();
+        if (showChannelDrawer) {
+          setShowChannelDrawer(false);
+        } else if (showInfoOverlay) {
+          setShowInfoOverlay(false);
+        } else {
+          onClose();
+        }
+        return;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, item, itemType, allChannels, onSelectChannel, showChannelDrawer, onClose]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isPlaying, item, itemType, allChannels, onSelectChannel, showChannelDrawer, showInfoOverlay, onClose]);
+
+  const showSeekBadge = (text: string) => {
+    setSeekFeedback(text);
+    if (seekFeedbackTimerRef.current) clearTimeout(seekFeedbackTimerRef.current);
+    seekFeedbackTimerRef.current = setTimeout(() => {
+      setSeekFeedback(null);
+    }, 1200);
+  };
 
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '00:00';
@@ -276,100 +353,167 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
   if (!item) return null;
 
+  const itemName = 'name' in item ? item.name : 'title' in item ? item.title : 'Canal';
+  const itemLogo = 'logo' in item ? (item as any).logo : 'poster' in item ? (item as any).poster : undefined;
+  const channelNum = 'number' in item ? (item as any).number : undefined;
+
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden select-none"
+      data-player-fullscreen="true"
+      onMouseMove={handleUserActivity}
+      className="fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden select-none font-sans"
     >
-      {/* Elemento de Vídeo */}
+      {/* Elemento de Vídeo HTML5 conectado ao PlaybackManager */}
       <video
         ref={videoRef}
+        playsInline
         onTimeUpdate={handleTimeUpdate}
         onClick={togglePlay}
         className="w-full h-full object-contain cursor-pointer"
       />
 
-      {/* Spinner de Carregamento */}
+      {/* Indicador de Busca / Seek (+10s, -10s) */}
+      {seekFeedback && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-6 py-3 rounded-2xl bg-black/80 border border-cyan-500/50 text-cyan-300 text-lg font-black tracking-wider animate-scaleUp z-40">
+          {seekFeedback}
+        </div>
+      )}
+
+      {/* Spinner de Carregamento e Fallback Inteligente */}
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-white text-sm font-medium">Carregando transmissão...</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm z-30">
+          <div className="w-14 h-14 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-4 shadow-[0_0_20px_rgba(6,182,212,0.5)]" />
+          <p className="text-white text-base font-bold tracking-wide">{statusText}</p>
+          <p className="text-xs text-slate-400 mt-1 font-medium">{itemName}</p>
         </div>
       )}
 
-      {/* Mensagem de Erro */}
-      {errorMsg && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 p-6 text-center">
-          <div className="p-4 rounded-full bg-red-500/20 text-red-500 mb-4">
-            <X className="w-8 h-8" />
+      {/* Mensagem de Erro com Ação de Retry */}
+      {errorMsg && !loading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md z-30 p-6 text-center">
+          <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/30 text-red-400 mb-4">
+            <Tv className="w-12 h-12" />
           </div>
-          <h3 className="text-xl font-bold text-white mb-2">Erro de Reprodução</h3>
-          <p className="text-slate-300 text-sm max-w-md mb-6">{errorMsg}</p>
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-brand-600 text-white font-semibold text-sm hover:bg-brand-500 transition-colors"
-          >
-            Fechar Player
-          </button>
+          <h3 className="text-xl font-bold text-white mb-2">Transmissão Indisponível</h3>
+          <p className="text-sm text-slate-300 max-w-md mb-6">{errorMsg}</p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => {
+                if (videoRef.current && item.url) {
+                  PlaybackManager.getInstance().loadStream(videoRef.current, item.url, {
+                    type: itemType,
+                    muted: false,
+                  });
+                }
+              }}
+              autoFocus
+              className="px-6 py-3 rounded-2xl bg-cyan-500 text-slate-950 font-bold text-sm shadow-xl shadow-cyan-500/20 hover:bg-cyan-400 focus:ring-4 focus:ring-cyan-400 focus:outline-none flex items-center gap-2 cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Tentar Novamente</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 rounded-2xl bg-slate-900 border border-slate-700 text-slate-300 font-bold text-sm hover:bg-slate-800 focus:ring-4 focus:ring-slate-400 focus:outline-none cursor-pointer"
+            >
+              Voltar para Lista
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Controls Overlay */}
+      {/* OSD RÁPIDO AO TROCAR DE CANAL (BANNER DE CANAL SMART TV) */}
+      {itemType === 'live' && showChannelOsd && (
+        <div className="absolute bottom-8 left-8 right-8 z-40 bg-slate-950/90 backdrop-blur-xl border border-cyan-500/40 rounded-3xl p-5 shadow-2xl flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center gap-4">
+            {channelNum && (
+              <span className="text-2xl font-black text-cyan-400 font-mono">
+                {String(channelNum).padStart(3, '0')}
+              </span>
+            )}
+            <div className="w-14 h-14 rounded-2xl bg-slate-900 p-2 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0">
+              {itemLogo ? (
+                <img src={itemLogo} alt={itemName} className="max-w-full max-h-full object-contain" />
+              ) : (
+                <Tv className="w-6 h-6 text-cyan-400" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-white">{itemName}</h2>
+                <span className="px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 text-[10px] font-bold uppercase tracking-wider">
+                  AO VIVO HD
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-slate-300 mt-0.5">
+                {epgProgram ? epgProgram.title : 'Transmissão ao Vivo'}
+              </p>
+              {epgProgram && (
+                <p className="text-xs text-slate-400 font-mono">
+                  {new Date(epgProgram.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{' '}
+                  {new Date(epgProgram.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-slate-400">
+            <span className="hidden sm:inline">Pressione <strong>▲ / ▼</strong> para trocar de canal</span>
+          </div>
+        </div>
+      )}
+
+      {/* BARRA DE CONTROLES FLUTUANTE (MOSTRADA AO MOVER O MOUSE OU ATIVAR) */}
       <div
-        className={`absolute inset-0 flex flex-col justify-between p-6 bg-gradient-to-t from-black/90 via-transparent to-black/70 transition-opacity duration-300 ${
-          showControls || !isPlaying ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/80 flex flex-col justify-between p-6 transition-opacity duration-300 z-20 pointer-events-none ${
+          showControls && !loading ? 'opacity-100' : 'opacity-0'
         }`}
       >
         {/* Top Bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pointer-events-auto">
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-2.5 rounded-full bg-black/40 hover:bg-white/20 text-white transition-colors"
-              title="Fechar Player"
+              className="p-3 rounded-2xl bg-black/60 hover:bg-white/20 text-slate-200 transition-colors focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer"
+              title="Voltar"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
-            <div className="flex flex-col">
-              <h2 className="text-lg font-bold text-white tracking-wide">
-                {'name' in item ? item.name : 'title' in item ? item.title : 'Conteúdo'}
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>{itemName}</span>
+                {itemType === 'live' && (
+                  <span className="px-2 py-0.5 rounded-md bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                    AO VIVO
+                  </span>
+                )}
               </h2>
-              <span className="text-xs text-slate-300">
-                {itemType === 'live'
-                  ? 'TV ao Vivo'
-                  : itemType === 'movie'
-                  ? 'Filme'
-                  : 'Série'}
-              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Drawer de Canais (somente TV ao Vivo) */}
             {itemType === 'live' && (
               <button
                 onClick={() => setShowChannelDrawer(!showChannelDrawer)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer ${
                   showChannelDrawer
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-black/50 border border-white/10 text-slate-200 hover:bg-white/10'
+                    ? 'bg-cyan-500 text-slate-950 font-bold'
+                    : 'bg-black/60 border border-white/10 text-slate-200 hover:bg-white/10'
                 }`}
-                title="Lista de Canais Lateral"
               >
                 <ListVideo className="w-4 h-4" />
                 <span>Lista de Canais</span>
               </button>
             )}
 
-            {/* Favorito */}
             {onToggleFavorite && (
               <button
                 onClick={() => onToggleFavorite(item.id, itemType)}
-                className={`p-2.5 rounded-full transition-colors ${
+                className={`p-3 rounded-2xl transition-colors focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer ${
                   isFavorite
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-black/40 text-slate-300 hover:bg-white/20 hover:text-white'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-black/60 text-slate-300 hover:bg-white/20 hover:text-white'
                 }`}
                 title="Favoritar"
               >
@@ -377,11 +521,10 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
               </button>
             )}
 
-            {/* Info */}
             <button
               onClick={() => setShowInfoOverlay(!showInfoOverlay)}
-              className="p-2.5 rounded-full bg-black/40 hover:bg-white/20 text-slate-300 hover:text-white transition-colors"
-              title="Informações do Programa"
+              className="p-3 rounded-2xl bg-black/60 hover:bg-white/20 text-slate-300 hover:text-white transition-colors focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer"
+              title="Informações"
             >
               <Info className="w-5 h-5" />
             </button>
@@ -389,8 +532,8 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
         </div>
 
         {/* Bottom Bar Controls */}
-        <div className="flex flex-col gap-3">
-          {/* Progress Seekbar (VOD / Filmes / Séries) */}
+        <div className="flex flex-col gap-3 pointer-events-auto">
+          {/* Progress Seekbar (Filmes / Séries) */}
           {itemType !== 'live' && (
             <div className="flex items-center gap-3">
               <span className="text-xs font-mono text-slate-300">{formatTime(currentTime)}</span>
@@ -404,7 +547,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
                   setCurrentTime(targetTime);
                   if (videoRef.current) videoRef.current.currentTime = targetTime;
                 }}
-                className="flex-1 h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-brand-500 transition-all"
+                className="flex-1 h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-cyan-400 transition-all focus:outline-none"
               />
               <span className="text-xs font-mono text-slate-300">{formatTime(duration)}</span>
             </div>
@@ -415,20 +558,20 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
             <div className="flex items-center gap-4">
               <button
                 onClick={togglePlay}
-                className="p-3 rounded-full bg-brand-600 hover:bg-brand-500 text-white shadow-lg transition-transform transform active:scale-95"
+                className="p-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-xl shadow-cyan-500/20 transition-transform active:scale-95 focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer"
               >
-                {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-current" />}
+                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
               </button>
 
               <div className="flex items-center gap-2 group">
                 <button
                   onClick={toggleMute}
-                  className="p-2 text-slate-300 hover:text-white transition-colors"
+                  className="p-2 text-slate-300 hover:text-white transition-colors focus:outline-none"
                 >
                   {isMuted || volume === 0 ? (
                     <VolumeX className="w-5 h-5 text-red-500" />
                   ) : (
-                    <Volume2 className="w-5 h-5" />
+                    <Volume2 className="w-5 h-5 text-cyan-400" />
                   )}
                 </button>
                 <input
@@ -438,35 +581,23 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
                   step={0.05}
                   value={isMuted ? 0 : volume}
                   onChange={handleVolumeChange}
-                  className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                  className="w-24 h-1.5 bg-white/30 rounded-lg appearance-none cursor-pointer accent-cyan-400"
                 />
               </div>
             </div>
-
-            {/* EPG Info no centro */}
-            {itemType === 'live' && epgProgram && (
-              <div className="hidden md:flex flex-col items-center max-w-sm text-center">
-                <span className="text-xs text-brand-400 font-semibold uppercase tracking-wider">
-                  No ar agora
-                </span>
-                <p className="text-sm font-bold text-white truncate max-w-full">
-                  {epgProgram.title}
-                </p>
-              </div>
-            )}
 
             {/* PiP & Fullscreen */}
             <div className="flex items-center gap-3">
               <button
                 onClick={togglePiP}
-                className="p-2 text-slate-300 hover:text-white transition-colors"
+                className="p-2.5 rounded-xl bg-black/50 text-slate-300 hover:text-white transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
                 title="Picture-in-Picture"
               >
                 <PictureInPicture className="w-5 h-5" />
               </button>
               <button
                 onClick={toggleFullscreen}
-                className="p-2 text-slate-300 hover:text-white transition-colors"
+                className="p-2.5 rounded-xl bg-black/50 text-slate-300 hover:text-white transition-colors focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
                 title="Tela Cheia"
               >
                 {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
@@ -478,40 +609,47 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
       {/* Drawer Lateral de Canais (TV ao Vivo) */}
       {showChannelDrawer && itemType === 'live' && (
-        <div className="absolute top-0 right-0 bottom-0 w-80 bg-dark-card/95 backdrop-blur-xl border-l border-dark-border/80 z-50 flex flex-col animate-slideLeft">
-          <div className="p-4 border-b border-dark-border flex items-center justify-between">
+        <div className="absolute top-0 right-0 bottom-0 w-88 bg-slate-950/95 backdrop-blur-2xl border-l border-slate-800 z-50 flex flex-col animate-slideLeft shadow-2xl">
+          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Tv className="w-4 h-4 text-brand-500" />
+              <Tv className="w-4 h-4 text-cyan-400" />
               <span>Lista de Canais</span>
             </h3>
             <button
               onClick={() => setShowChannelDrawer(false)}
-              className="p-1 text-slate-400 hover:text-white"
+              className="p-2 text-slate-400 hover:text-white rounded-xl focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {allChannels.map((ch) => (
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 no-scrollbar">
+            {allChannels.map((ch, idx) => (
               <button
                 key={ch.id}
+                tabIndex={0}
+                autoFocus={ch.id === item.id}
                 onClick={() => {
                   if (onSelectChannel) onSelectChannel(ch);
+                  triggerChannelOsd();
+                  setShowChannelDrawer(false);
                 }}
-                className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors ${
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none cursor-pointer ${
                   ch.id === item.id
-                    ? 'bg-brand-600/90 text-white font-semibold'
-                    : 'hover:bg-dark-cardHover text-slate-300'
+                    ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                    : 'hover:bg-slate-900 border border-transparent text-slate-300'
                 }`}
               >
-                {ch.logo ? (
-                  <img src={ch.logo} alt={ch.name} className="w-8 h-8 object-contain rounded" />
-                ) : (
-                  <div className="w-8 h-8 rounded bg-dark-border flex items-center justify-center text-xs font-bold">
-                    TV
-                  </div>
-                )}
-                <span className="text-xs truncate">{ch.name}</span>
+                <div className="w-9 h-9 rounded-xl bg-slate-900 p-1 border border-slate-800 flex items-center justify-center shrink-0 overflow-hidden">
+                  {ch.logo ? (
+                    <img src={ch.logo} alt={ch.name} className="max-w-full max-h-full object-contain" />
+                  ) : (
+                    <Tv className="w-4 h-4 text-cyan-400" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate text-white">{ch.name}</p>
+                  <p className="text-[10px] text-slate-400 font-mono">{String(idx + 1).padStart(3, '0')}</p>
+                </div>
               </button>
             ))}
           </div>
@@ -520,28 +658,30 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 
       {/* Info Overlay Modal */}
       {showInfoOverlay && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
-          <div className="bg-dark-card border border-dark-border p-6 rounded-2xl max-w-lg w-full relative">
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-slate-950 border border-cyan-500/40 p-6 rounded-3xl max-w-lg w-full relative shadow-2xl">
             <button
               onClick={() => setShowInfoOverlay(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-xl focus:ring-2 focus:ring-cyan-400 focus:outline-none cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-lg font-bold text-white mb-2">
-              {'name' in item ? item.name : 'title' in item ? item.title : 'Detalhes'}
+            <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+              <Info className="w-5 h-5 text-cyan-400" />
+              <span>{itemName}</span>
             </h3>
             {epgProgram ? (
-              <div className="space-y-2 text-sm text-slate-300">
-                <p className="font-semibold text-brand-400">Programa Atual: {epgProgram.title}</p>
-                {epgProgram.desc && <p className="text-slate-400 text-xs">{epgProgram.desc}</p>}
-                <p className="text-xs text-slate-500">
-                  Horário: {new Date(epgProgram.start).toLocaleTimeString()} - {new Date(epgProgram.end).toLocaleTimeString()}
+              <div className="space-y-3 text-sm text-slate-300">
+                <p className="font-bold text-cyan-300">No Ar: {epgProgram.title}</p>
+                {epgProgram.desc && <p className="text-slate-400 text-xs leading-relaxed">{epgProgram.desc}</p>}
+                <p className="text-xs text-slate-400 font-mono">
+                  Horário: {new Date(epgProgram.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} -{' '}
+                  {new Date(epgProgram.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             ) : (
-              <p className="text-sm text-slate-400">
-                {'synopsis' in item ? (item as any).synopsis : 'Nenhuma informação de guia disponível para esta transmissão.'}
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {'synopsis' in item ? (item as any).synopsis : 'Transmissão IPTV de alta definição com comutação rápida.'}
               </p>
             )}
           </div>

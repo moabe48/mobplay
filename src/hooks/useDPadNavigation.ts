@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 /**
  * Motor de Navegação Espacial D-Pad Otimizado para Smart TV, Android TV e Fire TV.
- * Normaliza eventos de controle remoto e calcula o próximo elemento com projeção W3C Spatial Navigation.
+ * Normaliza eventos de controle remoto e calcula o próximo elemento com precisão geométrica.
  */
 export function useDPadNavigation(onBackPress?: () => void) {
   useEffect(() => {
@@ -20,6 +20,11 @@ export function useDPadNavigation(onBackPress?: () => void) {
 
     // 2. Mapeamento Universal de Teclas de Controle Remoto e Teclado
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Se houver um player de vídeo em tela cheia ativo, o player assume o controle total
+      if (document.querySelector('[data-player-fullscreen="true"]')) {
+        return;
+      }
+
       const key = e.key;
       const code = e.keyCode;
 
@@ -51,12 +56,15 @@ export function useDPadNavigation(onBackPress?: () => void) {
         direction = 'ArrowRight';
       }
 
-      // Se for tecla de confirmação (OK / Enter / DPAD_CENTER) em elemento focável
+      // Tecla de confirmação (OK / Enter / DPAD_CENTER / Espaço)
       if (key === 'Enter' || key === 'Select' || key === ' ' || code === 13 || code === 23 || code === 66) {
         const active = document.activeElement as HTMLElement;
-        if (active && active !== document.body && active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') {
+        // Evita rolagem de página por espaço em elementos que não são inputs
+        if (key === ' ' && active && active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA') {
           e.preventDefault();
-          active.click();
+          if (typeof active.click === 'function') {
+            active.click();
+          }
         }
         return;
       }
@@ -121,7 +129,7 @@ function getFocusableElements(): HTMLElement[] {
 }
 
 /**
- * Encontra o container navegável mais próximo do elemento atual
+ * Encontra o container rolável mais próximo do elemento atual
  */
 function getScrollContainer(el: HTMLElement): HTMLElement | null {
   let parent = el.parentElement;
@@ -154,22 +162,24 @@ function findNearestElement(current: HTMLElement, direction: 'ArrowUp' | 'ArrowD
   const container = getScrollContainer(current);
   const allCandidates = getFocusableElements().filter((el) => el !== current && !el.contains(current));
 
-  // 1. Priorizar candidatos dentro do mesmo container rolável
-  const sameContainerCandidates = container
-    ? allCandidates.filter((el) => container.contains(el))
-    : [];
+  // Para navegação vertical (Up/Down), priorizar candidatos no mesmo container
+  if (direction === 'ArrowUp' || direction === 'ArrowDown') {
+    const sameContainerCandidates = container
+      ? allCandidates.filter((el) => container.contains(el))
+      : [];
 
-  const bestInContainer = evaluateCandidates(currentRect, currentCenter, sameContainerCandidates, direction);
-  if (bestInContainer) {
-    return bestInContainer;
+    const bestInContainer = evaluateCandidates(currentRect, currentCenter, sameContainerCandidates, direction);
+    if (bestInContainer) {
+      return bestInContainer;
+    }
   }
 
-  // 2. Se não houver candidatos válidos dentro do mesmo container, buscar no restante da página
+  // Para navegação horizontal (Left/Right) ou quando o container não tiver candidato, busca no DOM global
   return evaluateCandidates(currentRect, currentCenter, allCandidates, direction);
 }
 
 /**
- * Avalia candidatos com ponderação geométrica espacial e bônus de alinhamento
+ * Avalia candidatos com ponderação geométrica espacial e restrição angular estrita
  */
 function evaluateCandidates(
   currentRect: DOMRect,
@@ -194,16 +204,20 @@ function evaluateCandidates(
 
     switch (direction) {
       case 'ArrowUp':
-        isInDirection = candRect.bottom <= currentRect.top + 8 || dy < -2;
+        // Deve estar acima e primariamente vertical
+        isInDirection = dy < -8 && Math.abs(dy) >= Math.abs(dx) * 0.35;
         break;
       case 'ArrowDown':
-        isInDirection = candRect.top >= currentRect.bottom - 8 || dy > 2;
+        // Deve estar abaixo e primariamente vertical
+        isInDirection = dy > 8 && Math.abs(dy) >= Math.abs(dx) * 0.35;
         break;
       case 'ArrowLeft':
-        isInDirection = candRect.right <= currentRect.left + 8 || dx < -2;
+        // Deve estar à esquerda e primariamente horizontal
+        isInDirection = dx < -8 && Math.abs(dx) >= Math.abs(dy) * 0.35;
         break;
       case 'ArrowRight':
-        isInDirection = candRect.left >= currentRect.right - 8 || dx > 2;
+        // Deve estar à direita e primariamente horizontal
+        isInDirection = dx > 8 && Math.abs(dx) >= Math.abs(dy) * 0.35;
         break;
     }
 
@@ -237,8 +251,8 @@ function evaluateCandidates(
       }
     }
 
-    // Fórmula Spatial Navigation: peso 5x na distância ortogonal para evitar pulos laterais indesejados
-    const score = primaryDist + orthogonalDist * 5 - overlapBonus;
+    // Fórmula Spatial Navigation: peso 4x na distância ortogonal para evitar pulos indesejados
+    const score = primaryDist + orthogonalDist * 4 - overlapBonus;
 
     if (score < minScore) {
       minScore = score;

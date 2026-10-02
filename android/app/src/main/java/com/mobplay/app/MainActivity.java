@@ -19,6 +19,8 @@ public class MainActivity extends BridgeActivity {
                 settings.setAllowContentAccess(true);
                 settings.setJavaScriptEnabled(true);
                 settings.setMediaPlaybackRequiresUserGesture(false);
+                settings.setAllowUniversalAccessFromFileURLs(true);
+                settings.setAllowFileAccessFromFileURLs(true);
             }
         } catch (Exception e) {
             e.printStackTrace();

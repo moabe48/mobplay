@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import Hls from 'hls.js';
-import { Play, Maximize2, Volume2, VolumeX, Heart, Tv, Radio, Clock, Calendar } from 'lucide-react';
+import { Play, Maximize2, Tv, Heart, Clock, Calendar } from 'lucide-react';
 import { Channel, EPGProgram } from '../../types/iptv';
+import { PlaybackManager } from '../../services/player/PlaybackManager';
 
 interface LiveMiniPreviewProps {
   channel: Channel | null;
@@ -19,10 +19,10 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
   isFavorite = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [isMuted, setIsMuted] = useState<boolean>(true); // Muted por padrão no preview
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('Carregando...');
+  const [isError, setIsError] = useState<boolean>(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // EPG do Canal Selecionado com Busca Flexível e Gerador Dinâmico Fallback
   const channelEpg = useMemo(() => {
@@ -65,64 +65,53 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
     return generateFallbackEPG(channel);
   }, [channel, epgPrograms]);
 
+  // Carregar stream via PlaybackManager com Debounce de 350ms para navegação rápida D-Pad
   useEffect(() => {
     if (!channel || !channel.url || !videoRef.current) return;
 
     setLoading(true);
-    setError(false);
-    const video = videoRef.current;
-    let hls: Hls | null = null;
+    setIsError(false);
+    setStatusMessage('Carregando canal...');
 
-    if (Hls.isSupported() && (channel.url.includes('.m3u8') || channel.url.includes('http'))) {
-      hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        maxBufferLength: 5,
-        maxMaxBufferLength: 10,
-        startLevel: -1,
-      });
-
-      hls.loadSource(channel.url);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setLoading(false);
-        video.muted = isMuted;
-        video.play().catch(() => setIsPlaying(false));
-      });
-
-      hls.on(Hls.Events.ERROR, () => {
-        setError(true);
-        setLoading(false);
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = channel.url;
-      video.muted = isMuted;
-      video.addEventListener('loadedmetadata', () => {
-        setLoading(false);
-        video.play().catch(() => setIsPlaying(false));
-      });
-    } else {
-      video.src = channel.url;
-      video.muted = isMuted;
-      video.play().catch(() => setIsPlaying(false));
-      setLoading(false);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
 
+    debounceTimerRef.current = setTimeout(() => {
+      if (!videoRef.current || !channel.url) return;
+
+      const pm = PlaybackManager.getInstance();
+      const unsubscribe = pm.subscribe((event) => {
+        if (event.state === 'playing') {
+          setLoading(false);
+          setIsError(false);
+        } else if (event.state === 'loading' || event.state === 'buffering' || event.state === 'reconnecting') {
+          setLoading(true);
+          setStatusMessage(event.message || 'Conectando...');
+        } else if (event.state === 'error') {
+          setLoading(false);
+          setIsError(true);
+          setStatusMessage('Canal offline ou indisponível.');
+        }
+      });
+
+      pm.loadStream(videoRef.current, channel.url, {
+        type: 'live',
+        muted: true, // Mudo por padrão no preview para não atrapalhar
+        bufferProfile: 'low',
+      });
+
+      return () => {
+        unsubscribe();
+      };
+    }, 350);
+
     return () => {
-      if (hls) {
-        hls.destroy();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
       }
     };
   }, [channel]);
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      const newMuted = !isMuted;
-      videoRef.current.muted = newMuted;
-      setIsMuted(newMuted);
-    }
-  };
 
   if (!channel) {
     return (
@@ -157,13 +146,21 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
           <video
             ref={videoRef}
             playsInline
+            muted
             className="w-full h-full object-contain bg-black"
           />
 
           {loading && (
             <div className="absolute inset-0 bg-slate-950/80 flex flex-col items-center justify-center gap-2">
               <div className="w-7 h-7 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-              <span className="text-[11px] text-cyan-400 font-bold">Carregando...</span>
+              <span className="text-[11px] text-cyan-400 font-bold">{statusMessage}</span>
+            </div>
+          )}
+
+          {isError && (
+            <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center gap-2 p-4 text-center">
+              <Tv className="w-8 h-8 text-slate-600" />
+              <span className="text-xs text-red-400 font-bold">{statusMessage}</span>
             </div>
           )}
 

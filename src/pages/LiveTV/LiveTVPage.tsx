@@ -42,6 +42,7 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(channels[0] || null);
   const focusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastActionTimeRef = useRef<number>(0);
 
   const liveCategories = useMemo(
     () => (categories || []).filter((c) => c.type === 'live' || !c.type),
@@ -132,6 +133,23 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
     }, 150);
   };
 
+  /**
+   * Gerenciador de Ação do Canal (OK ou Clique) com Trava Anti-Duplo Disparo do D-Pad
+   */
+  const handleChannelAction = (ch: Channel) => {
+    const now = Date.now();
+    if (now - lastActionTimeRef.current < 250) return;
+    lastActionTimeRef.current = now;
+
+    if (selectedChannel?.id === ch.id) {
+      // Segundo clique consecutivo no canal selecionado: abre em tela cheia!
+      onPlayChannel(ch);
+    } else {
+      // Primeiro clique: seleciona o canal e inicia o preview
+      setSelectedChannel(ch);
+    }
+  };
+
   // Helper para ícone por nome de categoria
   const getCategoryIcon = (catName: string) => {
     const lower = catName.toLowerCase();
@@ -154,8 +172,16 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
         <div className="flex-1 overflow-y-auto p-3 space-y-1.5 no-scrollbar">
           {/* Favoritos */}
           <button
+            id="live-cat-favorites"
             tabIndex={0}
             onClick={() => setSelectedCategoryId('favorites')}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                const targetId = selectedChannel ? `live-ch-${selectedChannel.id}` : 'live-ch-0';
+                document.getElementById(targetId)?.focus();
+              }
+            }}
             className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
               selectedCategoryId === 'favorites'
                 ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -173,8 +199,16 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
 
           {/* Todos */}
           <button
+            id="live-cat-all"
             tabIndex={0}
             onClick={() => setSelectedCategoryId('all')}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                const targetId = selectedChannel ? `live-ch-${selectedChannel.id}` : 'live-ch-0';
+                document.getElementById(targetId)?.focus();
+              }
+            }}
             className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
               selectedCategoryId === 'all'
                 ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -194,8 +228,16 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
           {liveCategories.map((cat) => (
             <button
               key={cat.id}
+              id={`live-cat-${cat.id}`}
               tabIndex={0}
               onClick={() => setSelectedCategoryId(cat.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  const targetId = selectedChannel ? `live-ch-${selectedChannel.id}` : 'live-ch-0';
+                  document.getElementById(targetId)?.focus();
+                }
+              }}
               className={`w-full text-left px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-between transition-all focus:ring-4 focus:ring-cyan-400 focus:outline-none ${
                 selectedCategoryId === cat.id
                   ? 'bg-cyan-500/20 border-2 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)]'
@@ -232,16 +274,11 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
             return (
               <div
                 key={ch.id}
+                id={idx === 0 ? 'live-ch-0' : `live-ch-${ch.id}`}
                 tabIndex={0}
                 role="button"
                 onFocus={() => handleChannelFocus(ch)}
-                onClick={() => {
-                  if (isSelected) {
-                    onPlayChannel(ch);
-                  } else {
-                    setSelectedChannel(ch);
-                  }
-                }}
+                onClick={() => handleChannelAction(ch)}
                 onKeyDown={(e) => {
                   if (
                     e.key === 'Enter' ||
@@ -252,11 +289,16 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
                     e.keyCode === 66
                   ) {
                     e.preventDefault();
-                    if (isSelected) {
-                      onPlayChannel(ch);
-                    } else {
-                      setSelectedChannel(ch);
-                    }
+                    handleChannelAction(ch);
+                  } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    const catBtn =
+                      document.getElementById(`live-cat-${selectedCategoryId}`) ||
+                      document.getElementById('live-cat-all');
+                    catBtn?.focus();
+                  } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    document.getElementById('live-preview-box')?.focus();
                   }
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-cyan-400 ${
@@ -305,7 +347,31 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
       </div>
 
       {/* 3. CARD PREVIEW & EPG (COLUNA DIREITA SEMPRE VISÍVEL NA TV) */}
-      <div className="w-80 lg:w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 overflow-hidden shadow-2xl">
+      <div
+        id="live-preview-box"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            if (selectedChannel) {
+              document.getElementById(`live-ch-${selectedChannel.id}`)?.focus();
+            } else {
+              document.getElementById('live-ch-0')?.focus();
+            }
+          } else if (
+            e.key === 'Enter' ||
+            e.key === 'Select' ||
+            e.key === ' ' ||
+            e.keyCode === 13 ||
+            e.keyCode === 23 ||
+            e.keyCode === 66
+          ) {
+            e.preventDefault();
+            if (selectedChannel) onPlayChannel(selectedChannel);
+          }
+        }}
+        className="w-80 lg:w-96 bg-slate-900/80 border border-slate-800/80 rounded-3xl flex flex-col shrink-0 overflow-hidden shadow-2xl focus:outline-none focus:ring-4 focus:ring-cyan-400"
+      >
         <LiveMiniPreview
           channel={selectedChannel}
           epgPrograms={epgPrograms}
@@ -317,4 +383,3 @@ export const LiveTVPage: React.FC<LiveTVPageProps> = ({
     </div>
   );
 };
-
