@@ -10,7 +10,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ApkInstallerPlugin.class);
         super.onCreate(savedInstanceState);
         try {
+            getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+            );
+
             if (this.bridge != null && this.bridge.getWebView() != null) {
+                this.bridge.getWebView().setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);
+
                 WebSettings settings = this.bridge.getWebView().getSettings();
                 settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
                 settings.setDomStorageEnabled(true);
@@ -21,6 +28,8 @@ public class MainActivity extends BridgeActivity {
                 settings.setMediaPlaybackRequiresUserGesture(false);
                 settings.setAllowUniversalAccessFromFileURLs(true);
                 settings.setAllowFileAccessFromFileURLs(true);
+                settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
+                settings.setCacheMode(WebSettings.LOAD_DEFAULT);
             }
         } catch (Exception e) {
             e.printStackTrace();

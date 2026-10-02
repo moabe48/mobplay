@@ -104,7 +104,7 @@ export const LiveMiniPreview: React.FC<LiveMiniPreviewProps> = ({
       return () => {
         unsubscribe();
       };
-    }, 350);
+    }, 180);
 
     return () => {
       if (debounceTimerRef.current) {

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "apkUrl": "https://raw.githubusercontent.com/moabe48/mobplay/main/MobPlay.apk",
-  "releaseNotes": "Versão 1.0.7: Motor PlaybackManager com Fallback em Cascata (HLS/TS/MP4/MKV) para máxima compatibilidade com todos os canais e filmes, eliminação de duplo clique nos controles de TV, navegação D-Pad precisa entre as 3 colunas e OSD com troca rápida de canais em tela cheia.",
+  "releaseNotes": "Versão 1.0.8: Aceleração por hardware no Android TV WebView (GPU/MediaCodec), inicialização ultra-rápida de canais ao vivo em < 2 segundos (Ultra Low Latency Hls.js, 1-fragment sync, progressive demuxing e prefetch) e debounce otimizado de 180ms.",
   "mandatory": true
 }

@@ -1,4 +1,4 @@
-import Hls from 'hls.js';
+import Hls, { HlsConfig } from 'hls.js';
 import { BufferProfile } from '../../types/iptv';
 
 export type PlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'error' | 'reconnecting';
@@ -22,7 +22,7 @@ type StatusCallback = (event: PlayerStatusEvent) => void;
 
 /**
  * PlaybackManager - Gerenciador Central de Reprodução IPTV com Sistema de Fallback em Cascata
- * Especialmente otimizado para Android TV, Smart TV e TV Box.
+ * Otimizado com Ultra Baixa Latência e Aceleração por Hardware para Smart TV e Android TV.
  */
 export class PlaybackManager {
   private static instance: PlaybackManager;
@@ -34,12 +34,13 @@ export class PlaybackManager {
   private candidateIndex: number = 0;
   private currentOptions: PlaybackOptions = {};
   private retryCount = 0;
-  private maxRetries = 3;
+  private maxRetries = 2;
   private timeoutTimer: any = null;
   private statusListeners: Set<StatusCallback> = new Set();
   private bufferProfile: BufferProfile = 'normal';
   private attemptedNativeForCurrentCandidate: boolean = false;
   private mediaErrorCount = 0;
+  private videoEventListenerCleanups: (() => void)[] = [];
 
   private constructor() {}
 
@@ -77,25 +78,32 @@ export class PlaybackManager {
   }
 
   /**
-   * Gera variantes de URL para tentar reproduzir caso a URL original falhe
+   * Gera variantes de URL para tentar reproduzir caso a URL original falhe.
+   * Dá prioridade para o formato mais rápido e compatível.
    */
   private generateCandidates(url: string, type: 'live' | 'movie' | 'series'): string[] {
-    const list: string[] = [url];
+    const list: string[] = [];
 
     try {
       if (type === 'live') {
         if (url.includes('.m3u8')) {
+          list.push(url);
           list.push(url.replace(/\.m3u8(\?.*)?$/i, '.ts$1'));
           list.push(url.replace(/\.m3u8(\?.*)?$/i, '$1'));
         } else if (url.includes('.ts')) {
-          list.push(url.replace(/\.ts(\?.*)?$/i, '.m3u8$1'));
+          // Em servidores Xtream Codes, .m3u8 é o manifesto HLS que o Hls.js reproduz instantaneamente
+          const m3u8Url = url.replace(/\.ts(\?.*)?$/i, '.m3u8$1');
+          list.push(m3u8Url);
+          list.push(url);
           list.push(url.replace(/\.ts(\?.*)?$/i, '$1'));
-        } else if (!url.includes('.m3u8') && !url.includes('.ts')) {
+        } else {
           list.push(`${url}.m3u8`);
           list.push(`${url}.ts`);
+          list.push(url);
         }
       } else {
         // Filmes e Séries (VOD)
+        list.push(url);
         if (url.includes('.mkv')) {
           list.push(url.replace(/\.mkv(\?.*)?$/i, '.mp4$1'));
         } else if (url.includes('.avi')) {
@@ -106,9 +114,9 @@ export class PlaybackManager {
       }
     } catch (e) {
       console.warn('Erro ao gerar candidatos:', e);
+      list.push(url);
     }
 
-    // Filtrar itens únicos
     return Array.from(new Set(list.filter(Boolean)));
   }
 
@@ -118,16 +126,16 @@ export class PlaybackManager {
   public loadStream(video: HTMLVideoElement, url: string, options: PlaybackOptions = {}) {
     if (!url) return;
 
-    this.videoElement = video;
-    this.currentOptions = options;
-    const streamType = options.type || (url.includes('/live/') || url.includes('.m3u8') ? 'live' : 'movie');
-
-    // Se já estiver tocando exatamente a mesma URL, não reinicializar
-    if (this.currentUrl === url && this.currentState === 'playing') {
+    // Se já estiver tocando exatamente a mesma URL no mesmo elemento de vídeo, não reinicializar
+    if (this.currentUrl === url && this.currentState === 'playing' && this.videoElement === video) {
       return;
     }
 
     this.stopAndClean();
+
+    this.videoElement = video;
+    this.currentOptions = options;
+    const streamType = options.type || (url.includes('/live/') || url.includes('.m3u8') ? 'live' : 'movie');
 
     this.currentUrl = url;
     this.candidateUrls = this.generateCandidates(url, streamType);
@@ -137,6 +145,48 @@ export class PlaybackManager {
     this.attemptedNativeForCurrentCandidate = false;
 
     this.startLoadingCurrentCandidate();
+  }
+
+  /**
+   * Monitora eventos nativos do elemento de vídeo para resposta instantânea ao primeiro frame renderizado
+   */
+  private detachVideoEvents() {
+    if (this.videoEventListenerCleanups.length > 0) {
+      this.videoEventListenerCleanups.forEach((cleanup) => cleanup());
+      this.videoEventListenerCleanups = [];
+    }
+  }
+
+  private attachVideoEvents(video: HTMLVideoElement) {
+    this.detachVideoEvents();
+
+    const onPlaying = () => {
+      this.clearTimeoutTimer();
+      this.notify('playing');
+    };
+
+    const onTimeUpdate = () => {
+      if (video.currentTime > 0 && this.currentState !== 'playing') {
+        this.clearTimeoutTimer();
+        this.notify('playing');
+      }
+    };
+
+    const onWaiting = () => {
+      if (this.currentState === 'playing') {
+        this.notify('buffering', 'Carregando...');
+      }
+    };
+
+    video.addEventListener('playing', onPlaying);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('waiting', onWaiting);
+
+    this.videoEventListenerCleanups.push(() => {
+      video.removeEventListener('playing', onPlaying);
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('waiting', onWaiting);
+    });
   }
 
   /**
@@ -157,71 +207,92 @@ export class PlaybackManager {
 
     this.startTimeoutDetector();
 
+    const isM3U8 = url.includes('.m3u8');
+    const isDirectMedia = url.includes('.ts') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.avi');
+    const isLive = this.currentOptions.type === 'live' || url.includes('/live/');
     const profile = this.currentOptions.bufferProfile || this.bufferProfile;
-    let maxBufferLength = 6;
-    let maxMaxBufferLength = 12;
 
-    if (profile === 'low') {
-      maxBufferLength = 3;
-      maxMaxBufferLength = 6;
-    } else if (profile === 'high') {
-      maxBufferLength = 15;
-      maxMaxBufferLength = 30;
+    // Se for formato de mídia direta (.ts, .mp4, .mkv, .avi), carrega direto via decodificador nativo
+    if (isDirectMedia) {
+      this.loadNative(url);
+      return;
     }
 
-    const isM3U8 = url.includes('.m3u8');
-    const isLive = this.currentOptions.type === 'live' || url.includes('/live/');
-
-    // Priorizar HLS.js quando houver suporte e for HLS ou Live
+    // Se for M3U8 ou Live e houver suporte a Hls.js
     if (Hls.isSupported() && (isM3U8 || isLive) && !this.attemptedNativeForCurrentCandidate) {
       this.cleanupHls();
+      this.attachVideoEvents(video);
 
-      const hls = new Hls({
+      const hlsConfig: Partial<HlsConfig> = {
         enableWorker: false, // Desabilitar worker para maior estabilidade em Android TV WebView
         enableSoftwareAES: true,
-        lowLatencyMode: profile === 'low',
-        maxBufferLength,
-        maxMaxBufferLength,
-        maxBufferSize: 30 * 1024 * 1024,
-        maxBufferHole: 0.5,
-        manifestLoadingTimeOut: 12000,
-        manifestLoadingMaxRetry: 4,
-        fragLoadingTimeOut: 12000,
-        fragLoadingMaxRetry: 4,
-        levelLoadingTimeOut: 12000,
-        startLevel: -1,
-      });
+        lowLatencyMode: true,
+        
+        // Ultra Baixa Latência: inicia no primeiro fragmento ao invés de esperar 3 (início em < 2s)
+        liveSyncDurationCount: isLive ? 1 : 2,
+        liveMaxLatencyDurationCount: isLive ? 3 : 5,
+        liveDurationInfinity: true,
+        startFragPrefetch: true, // Pré-carrega o próximo pedaço em paralelo imediatamente
+        progressive: true, // Decodifica e renderiza chunks enquanto ainda transfere
 
+        // Otimização de Memória para Android TV
+        backBufferLength: isLive ? 0 : 10,
+        maxBufferLength: isLive ? 3 : (profile === 'low' ? 3 : 10),
+        maxMaxBufferLength: isLive ? 6 : (profile === 'low' ? 6 : 20),
+        maxBufferSize: 25 * 1024 * 1024,
+        maxBufferHole: 0.5,
+
+        // Timeouts rápidos para alternância imediata em caso de falha de rota
+        manifestLoadingTimeOut: 5000,
+        manifestLoadingMaxRetry: 2,
+        fragLoadingTimeOut: 6000,
+        fragLoadingMaxRetry: 2,
+        levelLoadingTimeOut: 5000,
+        levelLoadingMaxRetry: 2,
+
+        nudgeOffset: 0.1,
+        nudgeMaxRetry: 5,
+        startLevel: -1,
+      };
+
+      const hls = new Hls(hlsConfig);
       this.hls = hls;
+
       hls.loadSource(url);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        this.clearTimeoutTimer();
         video.muted = !!this.currentOptions.muted;
         if (this.currentOptions.initialTime && this.currentOptions.initialTime > 0) {
-          video.currentTime = this.currentOptions.initialTime;
+          try {
+            video.currentTime = this.currentOptions.initialTime;
+          } catch (e) {}
         }
-        video
-          .play()
-          .then(() => {
-            this.notify('playing');
-          })
-          .catch(() => {
-            this.notify('paused');
-          });
+        video.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        // Primeiro fragmento pronto na SourceBuffer: dispara o play de imediato
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
+        if (video.currentTime > 0) {
+          this.clearTimeoutTimer();
+          this.notify('playing');
+        }
       });
 
       hls.on(Hls.Events.BUFFER_STALLED, () => {
-        this.notify('buffering', 'Carregando buffer...');
+        if (this.currentState === 'playing') {
+          this.notify('buffering', 'Carregando buffer...');
+        }
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              // Se falhar a rede no Hls.js (possível CORS ou TS direto), tentar reprodução nativa antes de descartar
-              console.warn('[PlaybackManager] HLS Network Error, testando nativo:', url);
+              console.warn('[PlaybackManager] HLS Network Error, tentando nativo:', url);
               this.cleanupHls();
               this.loadNative(url);
               break;
@@ -258,6 +329,8 @@ export class PlaybackManager {
     if (!this.videoElement) return;
     const video = this.videoElement;
     this.attemptedNativeForCurrentCandidate = true;
+
+    this.attachVideoEvents(video);
 
     video.src = url;
     video.muted = !!this.currentOptions.muted;
@@ -297,7 +370,7 @@ export class PlaybackManager {
   }
 
   /**
-   * Avança para a próxima URL candidata ou inicia retry
+   * Avança para a próxima URL candidata ou inicia retry rápido
    */
   private tryNextCandidate() {
     this.cleanupHls();
@@ -308,14 +381,14 @@ export class PlaybackManager {
       this.candidateIndex++;
       this.startLoadingCurrentCandidate();
     } else {
-      // Todos os candidatos foram testados, tentar novamente o principal com retry
+      // Todos os candidatos foram testados, tentar novamente com retry rápido
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         this.candidateIndex = 0;
         this.notify('reconnecting', `Reconectando canal (${this.retryCount}/${this.maxRetries})...`);
         setTimeout(() => {
           this.startLoadingCurrentCandidate();
-        }, 1500 * this.retryCount);
+        }, 1200 * this.retryCount);
       } else {
         this.stopAndClean();
         this.notify('error', 'Canal ou vídeo temporariamente indisponível no servidor.');
@@ -325,12 +398,13 @@ export class PlaybackManager {
 
   private startTimeoutDetector() {
     this.clearTimeoutTimer();
+    const timeoutDuration = (this.currentOptions.type === 'live' || this.currentUrl?.includes('/live/')) ? 6000 : 10000;
     this.timeoutTimer = setTimeout(() => {
       if (this.currentState === 'loading' || this.currentState === 'buffering') {
         console.warn('[PlaybackManager] Timeout no stream atual, tentando alternativa...');
         this.tryNextCandidate();
       }
-    }, 12000);
+    }, timeoutDuration);
   }
 
   private clearTimeoutTimer() {
@@ -366,6 +440,7 @@ export class PlaybackManager {
   public stopAndClean() {
     this.clearTimeoutTimer();
     this.cleanupHls();
+    this.detachVideoEvents();
 
     if (this.videoElement) {
       try {
